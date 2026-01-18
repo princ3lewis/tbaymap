@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-slate-50 text-slate-900;
+  }
+}
+
+@keyframes riseFade {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .woodland-pattern {
+    background-image: radial-gradient(#e11d48 0.5px, transparent 0.5px),
+      radial-gradient(#e11d48 0.5px, #f8fafc 0.5px);
+    background-size: 20px 20px;
+    background-position: 0 0, 10px 10px;
+    opacity: 0.05;
+  }
+
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: riseFade 0.8s ease forwards;
+  }
+
+  .reveal-delay-1 {
+    animation-delay: 0.08s;
+  }
+
+  .reveal-delay-2 {
+    animation-delay: 0.16s;
+  }
+
+  .reveal-delay-3 {
+    animation-delay: 0.24s;
+  }
+
+  .reveal-delay-4 {
+    animation-delay: 0.32s;
+  }
+}

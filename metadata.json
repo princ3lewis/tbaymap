@@ -1,0 +1,8 @@
+
+{
+  "name": "Anishinaabe Connect - Tbay Tech Services",
+  "description": "A community-focused app for Thunder Bay connecting Indigenous culture with modern wearable tech. Create events, sync with your DIY wearable, and find local gatherings from football practice to traditional barbecues.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
