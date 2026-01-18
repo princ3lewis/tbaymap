@@ -109,7 +109,9 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
         }
         console.error('Google Maps failed to load:', error);
         setMapStatus('error');
-        setMapError('Unable to load Google Maps.');
+        const message =
+          error instanceof Error && error.message ? error.message : 'Unable to load Google Maps.';
+        setMapError(message);
       });
 
     return () => {
