@@ -320,7 +320,7 @@ export const createEvent = async (event: CreateEventPayload) => {
       }
     };
 
-    transaction.set(eventRef, {
+    const payload: Record<string, unknown> = {
       title: event.title,
       description: event.description,
       category: event.category,
@@ -342,9 +342,12 @@ export const createEvent = async (event: CreateEventPayload) => {
       status: 'active',
       attendees,
       participants: 1,
-      maxParticipants: event.maxParticipants,
       isSpiritMarker: event.isSpiritMarker ?? false
-    });
+    };
+    if (typeof event.maxParticipants === 'number') {
+      payload.maxParticipants = event.maxParticipants;
+    }
+    transaction.set(eventRef, payload);
   });
 
   return eventRef.id;
@@ -368,11 +371,6 @@ export const joinEvent = async (eventId: string, userId: string, displayName: st
       throw new Error('event-ended');
     }
 
-    const activeEventId = userSnap.exists() ? (userSnap.data() as { activeEventId?: string }).activeEventId : null;
-    if (activeEventId && activeEventId !== eventId) {
-      throw new Error('already-joined');
-    }
-
     if (typeof eventData.ageMin === 'number') {
       const userAge = userSnap.exists() ? (userSnap.data() as { age?: number }).age : undefined;
       if (typeof userAge !== 'number' || userAge < eventData.ageMin) {
@@ -391,7 +389,7 @@ export const joinEvent = async (eventId: string, userId: string, displayName: st
       });
     }
 
-    transaction.set(userRef, { activeEventId: eventId, displayName }, { merge: true });
+    transaction.set(userRef, { displayName }, { merge: true });
   });
 };
 
@@ -400,9 +398,8 @@ export const leaveEvent = async (eventId: string, userId: string) => {
     return;
   }
   const eventRef = doc(db, 'events', eventId);
-  const userRef = doc(db, 'users', userId);
   await runTransaction(db, async (transaction) => {
-    const [eventSnap, userSnap] = await Promise.all([transaction.get(eventRef), transaction.get(userRef)]);
+    const eventSnap = await transaction.get(eventRef);
     if (!eventSnap.exists()) {
       return;
     }
@@ -417,11 +414,6 @@ export const leaveEvent = async (eventId: string, userId: string) => {
         [`attendees.${userId}`]: deleteField(),
         participants: nextCount
       });
-    }
-
-    const activeEventId = userSnap.exists() ? (userSnap.data() as { activeEventId?: string }).activeEventId : null;
-    if (activeEventId === eventId) {
-      transaction.set(userRef, { activeEventId: null }, { merge: true });
     }
   });
 };

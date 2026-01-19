@@ -153,6 +153,34 @@ const toDateTimeInputValue = (date: Date) => {
   return local.toISOString().slice(0, 16);
 };
 
+const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
+
+const toDateValue = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const resolveEventWindow = (startAt: Date | null, endAt: Date | null) => {
+  const start = startAt ?? new Date();
+  const end = endAt ?? new Date(start.getTime() + DEFAULT_EVENT_DURATION_MS);
+  if (end <= start) {
+    return { start, end: new Date(start.getTime() + DEFAULT_EVENT_DURATION_MS) };
+  }
+  return { start, end };
+};
+
+const getEventWindow = (event: Pick<TbayEvent, 'startAt' | 'endAt' | 'createdAt'>) => {
+  const startAt = toDateValue(event.startAt) ?? toDateValue(event.createdAt) ?? new Date();
+  const endAt = toDateValue(event.endAt);
+  return resolveEventWindow(startAt, endAt);
+};
+
+const windowsOverlap = (a: { start: Date; end: Date }, b: { start: Date; end: Date }) =>
+  a.start < b.end && b.start < a.end;
+
 type PlaceSuggestion = {
   placeId: string;
   description: string;
@@ -448,11 +476,22 @@ const App: React.FC = () => {
         : 'bg-yellow-50 border-yellow-100 text-yellow-700'
     : 'bg-slate-100 border-slate-200 text-slate-500';
 
-  const activeAttendanceEventId = useMemo(() => {
-    const match = events.find((event) => event.attendeeIds?.includes(userId) && event.status !== 'ended');
-    return match?.id ?? null;
-  }, [events, userId]);
-  const activeAttendanceEvent = events.find((event) => event.id === activeAttendanceEventId) ?? null;
+  const userScheduledEvents = useMemo(
+    () =>
+      events.filter(
+        (event) =>
+          event.status !== 'ended' &&
+          (event.creatorId === userId || event.attendeeIds?.includes(userId))
+      ),
+    [events, userId]
+  );
+  const findScheduleConflict = useCallback(
+    (targetWindow: { start: Date; end: Date }, excludeId?: string) =>
+      userScheduledEvents.find(
+        (event) => event.id !== excludeId && windowsOverlap(targetWindow, getEventWindow(event))
+      ) ?? null,
+    [userScheduledEvents]
+  );
   const activeEvents = useMemo(() => events.filter((event) => event.status !== 'ended'), [events]);
   const sortedEvents = useMemo(() => {
     const interestSet = new Set(profile?.interests?.map((item) => item.toLowerCase()) ?? []);
@@ -870,10 +909,6 @@ const App: React.FC = () => {
       setCreateError('Log in to post a gathering.');
       return;
     }
-    if (activeAttendanceEvent && activeAttendanceEvent.id) {
-      setCreateError(`You're already going to ${activeAttendanceEvent.title}. Opt out before creating another event.`);
-      return;
-    }
     if (isSubmittingEvent) {
       return;
     }
@@ -890,6 +925,14 @@ const App: React.FC = () => {
     }
     if (startAt && endAt && endAt <= startAt) {
       setCreateError('End time must be after the start time.');
+      return;
+    }
+    const draftWindow = resolveEventWindow(startAt, endAt);
+    const scheduleConflict = findScheduleConflict(draftWindow);
+    if (scheduleConflict) {
+      setCreateError(
+        `This time overlaps with "${scheduleConflict.title}". Choose a different time or opt out of that event.`
+      );
       return;
     }
     const ageMinValue = newEvent.ageMin ? Number.parseInt(newEvent.ageMin, 10) : null;
@@ -1039,10 +1082,6 @@ const App: React.FC = () => {
       setJoinError('Log in to join this event.');
       return;
     }
-    if (activeAttendanceEventId && activeAttendanceEventId !== id) {
-      setJoinError(`You're already going to ${activeAttendanceEvent?.title}. Opt out to join another.`);
-      return;
-    }
     if (event.status === 'ended') {
       setJoinError('This event has already ended.');
       return;
@@ -1062,6 +1101,11 @@ const App: React.FC = () => {
       }
     }
     if (event.attendeeIds?.includes(userId)) {
+      return;
+    }
+    const scheduleConflict = findScheduleConflict(getEventWindow(event), event.id);
+    if (scheduleConflict) {
+      setJoinError(`This overlaps with "${scheduleConflict.title}". Opt out or pick another time.`);
       return;
     }
 
@@ -1317,17 +1361,18 @@ const App: React.FC = () => {
                 (() => {
                   const isFull = Boolean(event.maxParticipants && event.participants >= event.maxParticipants);
                   const isEnded = event.status === 'ended';
-                  const hasOtherEvent = Boolean(activeAttendanceEventId && activeAttendanceEventId !== event.id);
+                  const scheduleConflict = findScheduleConflict(getEventWindow(event), event.id);
+                  const hasConflict = Boolean(scheduleConflict);
                   const ageMin = typeof event.ageMin === 'number' ? event.ageMin : null;
                   const ageMissing = ageMin !== null && (profile?.age === null || typeof profile?.age !== 'number');
                   const ageRestricted = ageMin !== null && typeof profile?.age === 'number' && profile.age < ageMin;
-                  const canJoin = !(isFull || isEnded || hasOtherEvent || ageMissing || ageRestricted);
+                  const canJoin = !(isFull || isEnded || hasConflict || ageMissing || ageRestricted);
                   const joinDisabledReason = isEnded
                     ? 'Event ended'
                     : isFull
                       ? 'Event full'
-                      : hasOtherEvent
-                        ? `Going to ${activeAttendanceEvent?.title ?? 'another event'}`
+                      : hasConflict
+                        ? `Time conflict: ${scheduleConflict?.title ?? 'another event'}`
                         : ageMissing
                           ? 'Add age to profile'
                           : ageRestricted
