@@ -1,0 +1,480 @@
+'use client';
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import Script from 'next/script';
+import { useAuth } from '../../../../components/AuthProvider';
+import { subscribeToAdminStatus } from '../../../../services/adminService';
+import { PIN_MAP } from '../../../../data/assemblyGuide';
+import {
+  STRAP_STITCH_GUIDE,
+  WIRE_LEGEND,
+  WIRING_HOTSPOTS,
+  WIRING_STEPS
+} from '../../../../data/assemblyWiring';
+
+export default function AssemblyWiringPage() {
+  const { user, loading, signOut, enabled } = useAuth();
+  const userEmail = user?.email?.toLowerCase() ?? '';
+  const [adminStatus, setAdminStatus] = useState<'checking' | 'admin' | 'none'>('checking');
+  const [viewMode, setViewMode] = useState<'full' | 'detail'>('full');
+  const [activeStepId, setActiveStepId] = useState(WIRING_STEPS[0]?.id ?? '');
+  const [showAllHotspots, setShowAllHotspots] = useState(true);
+  const [trainingMode, setTrainingMode] = useState(true);
+  const modelViewerRef = useRef<any>(null);
+  const viewPresets = useMemo(
+    () => ({
+      full: { cameraOrbit: '45deg 70deg 11m', cameraTarget: '0m -0.2m 0m', fieldOfView: '42deg' },
+      detail: { cameraOrbit: '45deg 70deg 2.8m', cameraTarget: '0m 0m 0m', fieldOfView: '20deg' }
+    }),
+    []
+  );
+
+  useEffect(() => {
+    if (!enabled || !userEmail) {
+      setAdminStatus('checking');
+      return;
+    }
+    const unsubscribeStatus = subscribeToAdminStatus(userEmail, (nextIsAdmin) => {
+      setAdminStatus(nextIsAdmin ? 'admin' : 'none');
+    });
+    return () => unsubscribeStatus();
+  }, [enabled, userEmail]);
+
+  const activeStep = useMemo(
+    () => WIRING_STEPS.find((step) => step.id === activeStepId) ?? WIRING_STEPS[0] ?? null,
+    [activeStepId]
+  );
+  const activeHotspotIds = useMemo(() => new Set(activeStep?.hotspots ?? []), [activeStep?.hotspots]);
+  const visibleHotspotIds = useMemo(() => {
+    if (showAllHotspots) {
+      return new Set(WIRING_HOTSPOTS.map((hotspot) => hotspot.id));
+    }
+    return activeHotspotIds;
+  }, [activeHotspotIds, showAllHotspots]);
+  const activeHotspots = useMemo(
+    () => WIRING_HOTSPOTS.filter((hotspot) => activeHotspotIds.has(hotspot.id)),
+    [activeHotspotIds]
+  );
+  const stitchHotspots = useMemo(
+    () => WIRING_HOTSPOTS.filter((hotspot) => STRAP_STITCH_GUIDE.hotspots.includes(hotspot.id)),
+    []
+  );
+
+  useEffect(() => {
+    if (!modelViewerRef.current || !activeStep?.focus) {
+      return;
+    }
+    modelViewerRef.current.cameraOrbit = activeStep.focus.cameraOrbit;
+    modelViewerRef.current.cameraTarget = activeStep.focus.cameraTarget;
+  }, [activeStep?.focus]);
+
+  useEffect(() => {
+    if (!modelViewerRef.current) {
+      return;
+    }
+    const preset = viewPresets[viewMode];
+    modelViewerRef.current.cameraOrbit = preset.cameraOrbit;
+    modelViewerRef.current.cameraTarget = preset.cameraTarget;
+    modelViewerRef.current.fieldOfView = preset.fieldOfView;
+  }, [viewMode, viewPresets]);
+
+  const resetCamera = () => {
+    setViewMode('full');
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading...</div>;
+  }
+
+  if (!enabled) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 shadow-xl text-center space-y-4">
+          <h1 className="text-2xl font-serif text-slate-900">Admin access offline</h1>
+          <p className="text-sm text-slate-600">
+            Firebase is not configured yet. Add your NEXT_PUBLIC_FIREBASE_* keys first.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center w-full py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition"
+          >
+            Back to home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 shadow-xl text-center space-y-4">
+          <h1 className="text-2xl font-serif text-slate-900">Sign in to assemble</h1>
+          <p className="text-sm text-slate-600">Use your admin account to access the wiring station.</p>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/login"
+              className="w-full py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/"
+              className="w-full py-3 rounded-2xl text-sm font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 transition"
+            >
+              Back to home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (adminStatus === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
+        Checking admin access...
+      </div>
+    );
+  }
+
+  if (adminStatus !== 'admin') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 shadow-xl text-center space-y-4">
+          <h1 className="text-2xl font-serif text-slate-900">No admin access</h1>
+          <p className="text-sm text-slate-600">
+            {user.email ?? 'This account'} does not have admin access. Ask an admin to add you.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/"
+              className="w-full py-3 rounded-2xl text-sm font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 transition"
+            >
+              Back to home
+            </Link>
+            <button
+              onClick={signOut}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <Script
+        src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+        strategy="afterInteractive"
+        type="module"
+      />
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Assembly Station</p>
+            <h1 className="text-2xl font-serif text-slate-900">Wiring + Harness View</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <Link
+              href="/admin/assembly"
+              className="px-4 py-2 rounded-full border border-slate-200 text-xs font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+            >
+              Assembly
+            </Link>
+            <Link
+              href="/admin"
+              className="px-4 py-2 rounded-full border border-slate-200 text-xs font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+            >
+              Console
+            </Link>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-8 space-y-10">
+        <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Interactive wiring model</h2>
+              <p className="text-xs text-slate-500">
+                Click a wiring step to highlight connectors and route the harness.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('full')}
+                className={`px-3 py-1.5 rounded-full border ${
+                  viewMode === 'full'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Full view
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('detail')}
+                className={`px-3 py-1.5 rounded-full border ${
+                  viewMode === 'detail'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Detail zoom
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrainingMode(true)}
+                className={`px-3 py-1.5 rounded-full border ${
+                  trainingMode ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Kid-friendly view
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrainingMode(false)}
+                className={`px-3 py-1.5 rounded-full border ${
+                  !trainingMode ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Builder view
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAllHotspots((prev) => !prev)}
+                className="px-3 py-1.5 rounded-full border border-slate-200 text-slate-600"
+              >
+                {showAllHotspots ? 'Hide extra labels' : 'Show all labels'}
+              </button>
+              <button
+                type="button"
+                onClick={resetCamera}
+                className="px-3 py-1.5 rounded-full border border-slate-200 text-slate-600"
+              >
+                Reset view
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950/5">
+              <model-viewer
+                ref={modelViewerRef}
+                src="/models/tbay-bracelet.gltf"
+                alt="Tbay wearable wiring model"
+                camera-controls
+                auto-rotate
+                shadow-intensity="0.8"
+                field-of-view={viewPresets[viewMode].fieldOfView}
+                style={{ width: '100%', height: '420px' }}
+              >
+                {WIRING_HOTSPOTS.map((hotspot) => {
+                  const isActive = activeHotspotIds.has(hotspot.id);
+                  const isVisible = visibleHotspotIds.has(hotspot.id);
+                  return (
+                    <button
+                      key={hotspot.id}
+                      type="button"
+                      slot={`hotspot-${hotspot.id}`}
+                      data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
+                      data-normal={`${hotspot.normal.x} ${hotspot.normal.y} ${hotspot.normal.z}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold shadow ${
+                        isActive
+                          ? 'bg-indigo-600 text-white ring-2 ring-indigo-200'
+                          : 'bg-white/90 text-slate-700 border border-slate-200'
+                      } ${isVisible ? '' : 'hidden'}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : 'bg-slate-400'}`} />
+                      {hotspot.label}
+                    </button>
+                  );
+                })}
+              </model-viewer>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">
+                Active connectors
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {activeHotspots.length === 0 && (
+                  <span className="text-[11px] text-slate-400">Select a wiring step to highlight.</span>
+                )}
+                {activeHotspots.map((hotspot) => (
+                  <span
+                    key={hotspot.id}
+                    className="px-3 py-1 rounded-full text-[11px] font-semibold text-slate-600 bg-white border border-slate-200"
+                  >
+                    {hotspot.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Wire legend</h2>
+              <p className="text-xs text-slate-500">Color code your harness to stay consistent.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {WIRE_LEGEND.map((item) => (
+                <div key={item.id} className="border border-slate-200 rounded-2xl p-3 flex items-start gap-3">
+                  <span className={`w-3 h-3 rounded-full mt-1 ${item.color}`} />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800">{item.label}</p>
+                    <p className="text-[11px] text-slate-500">{item.usage}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Pin map</p>
+              {PIN_MAP.map((item) => (
+                <div key={item.id} className="text-[11px] text-slate-600">
+                  <span className="font-semibold text-slate-800">{item.signal}:</span> {item.from} → {item.to}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Wiring steps</h2>
+            <p className="text-xs text-slate-500">
+              Click a step to highlight the connector points and route path.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {WIRING_STEPS.map((step) => (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => setActiveStepId(step.id)}
+                className={`border border-slate-200 rounded-2xl p-4 text-left space-y-2 transition ${
+                  step.id === activeStep?.id ? 'ring-2 ring-indigo-300 bg-indigo-50/30' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">Wiring step</p>
+                  <span className="text-[10px] text-slate-400">
+                    {step.difficulty} • {step.timeMinutes} min
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">{step.title}</h3>
+                <p className="text-xs text-slate-600">{step.summary}</p>
+                <p className="text-[11px] text-slate-500">
+                  {step.from} → {step.to}
+                </p>
+              </button>
+            ))}
+          </div>
+          {activeStep && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Active wiring</p>
+                  <p className="text-sm font-semibold text-slate-800">{activeStep.title}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200">
+                    {activeStep.wireColor} • {activeStep.wireGauge}
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200">
+                    {activeStep.connector}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Do this</p>
+                  <ol className="list-decimal list-inside text-xs text-slate-600 space-y-1">
+                    {(trainingMode ? activeStep.kidSteps : activeStep.microSteps).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Route</p>
+                  <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
+                    {activeStep.route.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Tools</p>
+                  <p className="text-xs text-slate-600">{activeStep.tools.join(', ')}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Checks</p>
+                  <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
+                    {activeStep.checks.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Safety</p>
+                <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
+                  {activeStep.safety.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">{STRAP_STITCH_GUIDE.title}</h2>
+              <p className="text-xs text-slate-500">{STRAP_STITCH_GUIDE.summary}</p>
+            </div>
+            <ol className="list-decimal list-inside text-sm text-slate-700 space-y-2">
+              {STRAP_STITCH_GUIDE.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Checks</p>
+              <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
+                {STRAP_STITCH_GUIDE.checks.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Anchor points</h2>
+              <p className="text-xs text-slate-500">Use these tie points to keep wires safe.</p>
+            </div>
+            <div className="space-y-3">
+              {stitchHotspots.map((hotspot) => (
+                <div key={hotspot.id} className="border border-slate-200 rounded-2xl p-4 space-y-1">
+                  <p className="text-xs font-semibold text-slate-800">{hotspot.label}</p>
+                  <p className="text-[11px] text-slate-500">{hotspot.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

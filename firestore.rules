@@ -14,13 +14,77 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/admins/$(userEmail()));
     }
 
+    function isDeviceOwner() {
+      return signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    function eventAttendees(data) {
+      return data.attendees == null ? {} : data.attendees;
+    }
+
+    function attendeeKeysOnlySelf() {
+      let before = eventAttendees(resource.data);
+      let after = eventAttendees(request.resource.data);
+      return after.keys().hasOnly(before.keys().union([request.auth.uid]))
+        && before.keys().hasOnly(after.keys().union([request.auth.uid]));
+    }
+
+    function attendeeUpdateValid() {
+      let changed = request.resource.data.diff(resource.data).changedKeys();
+      return signedIn()
+        && resource.data.status != 'ended'
+        && changed.hasOnly(['attendees', 'participants'])
+        && attendeeKeysOnlySelf()
+        && request.resource.data.participants == eventAttendees(request.resource.data).size();
+    }
+
+    function creatorUpdateValid() {
+      let changed = request.resource.data.diff(resource.data).changedKeys();
+      return signedIn()
+        && request.auth.uid == resource.data.creatorId
+        && request.resource.data.creatorId == resource.data.creatorId
+        && (
+          changed.hasOnly(['status', 'endedAt', 'endAt']) ||
+          changed.hasOnly(['creatorLocation', 'creatorLocationUpdatedAt', 'creatorLocationEnabled']) ||
+          changed.hasOnly(['mediaUrls'])
+        );
+    }
+
     match /admins/{email} {
       allow read: if signedIn() && (isAdmin() || userEmail() == email);
       allow create, update, delete: if isAdmin();
     }
 
     match /devices/{deviceId} {
-      allow read, write: if isAdmin();
+      function deviceLinkChangesOnly() {
+        return request.resource.data
+          .diff(resource.data)
+          .changedKeys()
+          .hasOnly(['ownerUid', 'ownerEmail', 'linkedAt']);
+      }
+
+      function canClaimDevice() {
+        return signedIn()
+          && resource.data.ownerUid == null
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerEmail == request.auth.token.email
+          && deviceLinkChangesOnly()
+          && resource.data.encodedAt != null;
+      }
+
+      function canUnlinkDevice() {
+        return signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerUid == null
+          && request.resource.data.ownerEmail == null
+          && request.resource.data.linkedAt == null
+          && deviceLinkChangesOnly();
+      }
+
+      allow get: if isAdmin() || isDeviceOwner() || (signedIn() && resource.data.ownerUid == null);
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || canClaimDevice() || canUnlinkDevice();
     }
 
     match /batches/{batchId} {
@@ -54,17 +118,28 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if isAdmin() || (
-        signedIn() &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants']) &&
-        request.resource.data.participants == resource.data.participants + 1
-      );
+      allow create: if signedIn() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isAdmin() || attendeeUpdateValid() || creatorUpdateValid();
       allow delete: if isAdmin();
     }
 
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/following/{targetId} {
+      allow read: if signedIn();
+      allow create, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/followers/{followerId} {
+      allow read: if signedIn();
+      allow create, delete: if signedIn() && request.auth.uid == followerId;
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
   }
 }

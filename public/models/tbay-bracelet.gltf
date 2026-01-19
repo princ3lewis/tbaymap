@@ -1,0 +1,1836 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "tbay-assembly-proxy-v2"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Enclosure Base",
+      "mesh": 0,
+      "translation": [
+        0,
+        -0.2,
+        0
+      ],
+      "scale": [
+        3,
+        0.4,
+        1.8
+      ]
+    },
+    {
+      "name": "Top Cover",
+      "mesh": 1,
+      "translation": [
+        0,
+        0.5,
+        0
+      ],
+      "scale": [
+        2.6,
+        0.18,
+        1.6
+      ]
+    },
+    {
+      "name": "Diffuser",
+      "mesh": 2,
+      "translation": [
+        0,
+        0.52,
+        0
+      ],
+      "scale": [
+        1.6,
+        0.06,
+        0.7
+      ]
+    },
+    {
+      "name": "Main PCB",
+      "mesh": 3,
+      "translation": [
+        0,
+        -0.03,
+        0
+      ],
+      "scale": [
+        2.2,
+        0.07,
+        1.3
+      ]
+    },
+    {
+      "name": "ESP32-S3",
+      "mesh": 4,
+      "translation": [
+        0.55,
+        0.06,
+        0.25
+      ],
+      "scale": [
+        0.8,
+        0.12,
+        0.45
+      ]
+    },
+    {
+      "name": "GNSS Module",
+      "mesh": 5,
+      "translation": [
+        -0.6,
+        0.05,
+        -0.25
+      ],
+      "scale": [
+        0.7,
+        0.12,
+        0.45
+      ]
+    },
+    {
+      "name": "GNSS Antenna",
+      "mesh": 6,
+      "translation": [
+        0,
+        0.16,
+        0.68
+      ],
+      "scale": [
+        1.2,
+        0.05,
+        0.2
+      ]
+    },
+    {
+      "name": "GNSS UART Pads",
+      "mesh": 7,
+      "translation": [
+        -0.5,
+        0.12,
+        -0.2
+      ],
+      "scale": [
+        0.2,
+        0.02,
+        0.06
+      ]
+    },
+    {
+      "name": "I2C Pads",
+      "mesh": 8,
+      "translation": [
+        0.05,
+        0.12,
+        -0.1
+      ],
+      "scale": [
+        0.2,
+        0.02,
+        0.08
+      ]
+    },
+    {
+      "name": "LED Pads",
+      "mesh": 9,
+      "translation": [
+        0.35,
+        0.43,
+        0
+      ],
+      "scale": [
+        0.12,
+        0.02,
+        0.12
+      ]
+    },
+    {
+      "name": "LiPo Battery",
+      "mesh": 10,
+      "translation": [
+        0,
+        -0.18,
+        0
+      ],
+      "scale": [
+        1.8,
+        0.18,
+        0.8
+      ]
+    },
+    {
+      "name": "Battery JST",
+      "mesh": 11,
+      "translation": [
+        0.2,
+        -0.16,
+        0.35
+      ],
+      "scale": [
+        0.2,
+        0.06,
+        0.12
+      ]
+    },
+    {
+      "name": "USB-C Charger",
+      "mesh": 12,
+      "translation": [
+        0,
+        -0.05,
+        0.95
+      ],
+      "scale": [
+        0.9,
+        0.12,
+        0.3
+      ]
+    },
+    {
+      "name": "USB-C Port",
+      "mesh": 13,
+      "translation": [
+        0,
+        -0.05,
+        1.1
+      ],
+      "scale": [
+        0.25,
+        0.08,
+        0.08
+      ]
+    },
+    {
+      "name": "Charging Pads",
+      "mesh": 14,
+      "translation": [
+        0.4,
+        -0.34,
+        0.05
+      ],
+      "scale": [
+        0.25,
+        0.03,
+        0.25
+      ]
+    },
+    {
+      "name": "Side Button",
+      "mesh": 15,
+      "translation": [
+        1.5,
+        0.05,
+        0
+      ],
+      "scale": [
+        0.15,
+        0.15,
+        0.3
+      ]
+    },
+    {
+      "name": "Haptic Driver",
+      "mesh": 16,
+      "translation": [
+        -0.75,
+        -0.05,
+        -0.15
+      ],
+      "scale": [
+        0.35,
+        0.08,
+        0.25
+      ]
+    },
+    {
+      "name": "Haptic Motor",
+      "mesh": 17,
+      "translation": [
+        -0.9,
+        -0.1,
+        -0.2
+      ],
+      "scale": [
+        0.18,
+        0.06,
+        0.18
+      ]
+    },
+    {
+      "name": "Speaker Amp",
+      "mesh": 18,
+      "translation": [
+        0.8,
+        -0.05,
+        0.25
+      ],
+      "scale": [
+        0.35,
+        0.08,
+        0.25
+      ]
+    },
+    {
+      "name": "Speaker",
+      "mesh": 19,
+      "translation": [
+        0.9,
+        -0.1,
+        0.2
+      ],
+      "scale": [
+        0.22,
+        0.08,
+        0.22
+      ]
+    },
+    {
+      "name": "Status LED",
+      "mesh": 20,
+      "translation": [
+        0.35,
+        0.46,
+        0
+      ],
+      "scale": [
+        0.06,
+        0.06,
+        0.06
+      ]
+    },
+    {
+      "name": "Fastener",
+      "mesh": 21,
+      "translation": [
+        1.1,
+        0.32,
+        0.6
+      ],
+      "scale": [
+        0.05,
+        0.12,
+        0.05
+      ]
+    },
+    {
+      "name": "Flex Cable",
+      "mesh": 22,
+      "translation": [
+        0.15,
+        -0.08,
+        -0.15
+      ],
+      "scale": [
+        0.3,
+        0.02,
+        0.2
+      ]
+    },
+    {
+      "name": "Wire Battery +",
+      "mesh": 23,
+      "translation": [
+        0.15,
+        -0.18,
+        0.45
+      ],
+      "scale": [
+        0.025,
+        0.7,
+        0.025
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire Battery -",
+      "mesh": 24,
+      "translation": [
+        -0.15,
+        -0.18,
+        0.45
+      ],
+      "scale": [
+        0.025,
+        0.7,
+        0.025
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire GNSS UART",
+      "mesh": 25,
+      "translation": [
+        -0.1,
+        0.05,
+        0
+      ],
+      "scale": [
+        0.02,
+        0.6,
+        0.02
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire I2C",
+      "mesh": 26,
+      "translation": [
+        0.05,
+        0.02,
+        -0.05
+      ],
+      "scale": [
+        0.02,
+        0.5,
+        0.02
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire Haptic",
+      "mesh": 27,
+      "translation": [
+        -0.83,
+        -0.08,
+        -0.18
+      ],
+      "scale": [
+        0.02,
+        0.25,
+        0.02
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire LED",
+      "mesh": 28,
+      "translation": [
+        0.3,
+        0.3,
+        0
+      ],
+      "scale": [
+        0.015,
+        0.2,
+        0.015
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Wire Speaker",
+      "mesh": 29,
+      "translation": [
+        0.85,
+        -0.08,
+        0.22
+      ],
+      "scale": [
+        0.02,
+        0.2,
+        0.02
+      ],
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Strap Segment 1",
+      "mesh": 30,
+      "translation": [
+        2.1,
+        -0.32,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.7071067811865475,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Strap Segment 2",
+      "mesh": 31,
+      "translation": [
+        2.054109961540992,
+        -0.5175161062768714,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.8441737799668892,
+        0.5360696122859548
+      ]
+    },
+    {
+      "name": "Strap Segment 3",
+      "mesh": 32,
+      "translation": [
+        1.918445461049462,
+        -0.7063998109220102,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9223476018864808,
+        0.3863611022013706
+      ]
+    },
+    {
+      "name": "Strap Segment 4",
+      "mesh": 33,
+      "translation": [
+        1.6989356881873898,
+        -0.8783959896778495,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9614816871763869,
+        0.2748689964773188
+      ]
+    },
+    {
+      "name": "Strap Segment 5",
+      "mesh": 34,
+      "translation": [
+        1.4051742733536023,
+        -1.0259875842035244,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9813559031920567,
+        0.19219935293882393
+      ]
+    },
+    {
+      "name": "Strap Segment 6",
+      "mesh": 35,
+      "translation": [
+        1.0500000000000003,
+        -1.1427241335952167,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9918526437195091,
+        0.12739047510163562
+      ]
+    },
+    {
+      "name": "Strap Segment 7",
+      "mesh": 36,
+      "translation": [
+        0.6489356881873897,
+        -1.2235036904803958,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9973387822473865,
+        0.0729064703939249
+      ]
+    },
+    {
+      "name": "Strap Segment 8",
+      "mesh": 37,
+      "translation": [
+        0.21950977286207227,
+        -1.2647958005998596,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.9997178469593339,
+        0.02375345177008778
+      ]
+    },
+    {
+      "name": "Strap Segment 9",
+      "mesh": 38,
+      "translation": [
+        -0.21950977286207202,
+        -1.2647958005998596,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9997178469593339,
+        0.02375345177008778
+      ]
+    },
+    {
+      "name": "Strap Segment 10",
+      "mesh": 39,
+      "translation": [
+        -0.6489356881873894,
+        -1.223503690480396,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9973387822473865,
+        0.07290647039392467
+      ]
+    },
+    {
+      "name": "Strap Segment 11",
+      "mesh": 40,
+      "translation": [
+        -1.0499999999999996,
+        -1.1427241335952167,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9918526437195092,
+        0.1273904751016354
+      ]
+    },
+    {
+      "name": "Strap Segment 12",
+      "mesh": 41,
+      "translation": [
+        -1.4051742733536017,
+        -1.0259875842035246,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9813559031920568,
+        0.1921993529388237
+      ]
+    },
+    {
+      "name": "Strap Segment 13",
+      "mesh": 42,
+      "translation": [
+        -1.6989356881873894,
+        -0.8783959896778495,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9614816871763869,
+        0.2748689964773188
+      ]
+    },
+    {
+      "name": "Strap Segment 14",
+      "mesh": 43,
+      "translation": [
+        -1.9184454610494621,
+        -0.70639981092201,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.9223476018864807,
+        0.3863611022013708
+      ]
+    },
+    {
+      "name": "Strap Segment 15",
+      "mesh": 44,
+      "translation": [
+        -2.054109961540992,
+        -0.5175161062768714,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.8441737799668892,
+        0.5360696122859548
+      ]
+    },
+    {
+      "name": "Strap Segment 16",
+      "mesh": 45,
+      "translation": [
+        -2.1,
+        -0.3200000000000001,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.08,
+        1.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0.7071067811865477,
+        0.7071067811865474
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Enclosure Base Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Top Cover Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "Diffuser Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 2
+        }
+      ]
+    },
+    {
+      "name": "Main PCB Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 3
+        }
+      ]
+    },
+    {
+      "name": "ESP32-S3 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 5
+        }
+      ]
+    },
+    {
+      "name": "GNSS Module Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 6
+        }
+      ]
+    },
+    {
+      "name": "GNSS Antenna Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 7
+        }
+      ]
+    },
+    {
+      "name": "GNSS UART Pads Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 9
+        }
+      ]
+    },
+    {
+      "name": "I2C Pads Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 9
+        }
+      ]
+    },
+    {
+      "name": "LED Pads Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 9
+        }
+      ]
+    },
+    {
+      "name": "LiPo Battery Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 4
+        }
+      ]
+    },
+    {
+      "name": "Battery JST Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 10
+        }
+      ]
+    },
+    {
+      "name": "USB-C Charger Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 8
+        }
+      ]
+    },
+    {
+      "name": "USB-C Port Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 10
+        }
+      ]
+    },
+    {
+      "name": "Charging Pads Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 9
+        }
+      ]
+    },
+    {
+      "name": "Side Button Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 10
+        }
+      ]
+    },
+    {
+      "name": "Haptic Driver Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 11
+        }
+      ]
+    },
+    {
+      "name": "Haptic Motor Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 11
+        }
+      ]
+    },
+    {
+      "name": "Speaker Amp Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 12
+        }
+      ]
+    },
+    {
+      "name": "Speaker Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 12
+        }
+      ]
+    },
+    {
+      "name": "Status LED Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 13
+        }
+      ]
+    },
+    {
+      "name": "Fastener Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 9
+        }
+      ]
+    },
+    {
+      "name": "Flex Cable Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 21
+        }
+      ]
+    },
+    {
+      "name": "Wire Battery + Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 15
+        }
+      ]
+    },
+    {
+      "name": "Wire Battery - Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 16
+        }
+      ]
+    },
+    {
+      "name": "Wire GNSS UART Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 17
+        }
+      ]
+    },
+    {
+      "name": "Wire I2C Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 18
+        }
+      ]
+    },
+    {
+      "name": "Wire Haptic Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 19
+        }
+      ]
+    },
+    {
+      "name": "Wire LED Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 18
+        }
+      ]
+    },
+    {
+      "name": "Wire Speaker Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 20
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 1 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 2 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 3 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 4 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 5 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 6 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 7 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 8 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 9 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 10 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 11 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 12 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 13 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 14 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 15 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    },
+    {
+      "name": "Strap Segment 16 Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 14
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Enclosure",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.72,
+          0.72,
+          0.74,
+          0.25
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.85
+      },
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "Cover",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.96,
+          0.97,
+          0.99,
+          0.35
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.4
+      },
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "Diffuser",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.94,
+          0.97,
+          1,
+          0.45
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.2
+      },
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "PCB",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.12,
+          0.5,
+          0.28,
+          1
+        ],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.7
+      }
+    },
+    {
+      "name": "Battery",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.12,
+          0.32,
+          0.7,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "MCU",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.18,
+          0.18,
+          0.2,
+          1
+        ],
+        "metallicFactor": 0.4,
+        "roughnessFactor": 0.5
+      }
+    },
+    {
+      "name": "GNSS",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.18,
+          0.55,
+          0.58,
+          1
+        ],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "Antenna",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.82,
+          0.82,
+          0.84,
+          1
+        ],
+        "metallicFactor": 0.3,
+        "roughnessFactor": 0.4
+      }
+    },
+    {
+      "name": "Charger",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.95,
+          0.72,
+          0.18,
+          1
+        ],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.5
+      }
+    },
+    {
+      "name": "Contacts",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.9,
+          0.78,
+          0.3,
+          1
+        ],
+        "metallicFactor": 0.6,
+        "roughnessFactor": 0.3
+      }
+    },
+    {
+      "name": "Button",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.35,
+          0.35,
+          0.35,
+          1
+        ],
+        "metallicFactor": 0.2,
+        "roughnessFactor": 0.7
+      }
+    },
+    {
+      "name": "Haptic",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.92,
+          0.48,
+          0.18,
+          1
+        ],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.5
+      }
+    },
+    {
+      "name": "Speaker",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.6,
+          0.6,
+          0.62,
+          1
+        ],
+        "metallicFactor": 0.3,
+        "roughnessFactor": 0.4
+      }
+    },
+    {
+      "name": "LED",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.15,
+          0.9,
+          0.25,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.3
+      }
+    },
+    {
+      "name": "Strap",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.18,
+          0.18,
+          0.25,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.9
+      }
+    },
+    {
+      "name": "WireRed",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.85,
+          0.2,
+          0.2,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "WireBlack",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.1,
+          0.1,
+          0.1,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8
+      }
+    },
+    {
+      "name": "WireBlue",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.25,
+          0.45,
+          0.9,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "WireGreen",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.2,
+          0.8,
+          0.45,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "WireYellow",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.95,
+          0.82,
+          0.2,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "WirePurple",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.62,
+          0.3,
+          0.7,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "FlexCable",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.7,
+          0.7,
+          0.7,
+          1
+        ],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.8
+      }
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 4056,
+      "uri": "data:application/octet-stream;base64,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AAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAABAAIAAgABAAMAAgADAAQABAADAAUABAAFAAYABgAFAAcABgAHAAgACAAHAAkACAAJAAoACgAJAAsACgALAAwADAALAA0ADAANAA4ADgANAA8ADgAPABAAEAAPABEAEAARABIAEgARABMAEgATABQAFAATABUAFAAVABYAFgAVABcAFgAXABgAGAAXABkAGAAZABoAGgAZABsAGgAbABwAHAAbAB0AHAAdAB4AHgAdAB8AHgAfACAAIAAfACEAIAAhACIAIgAhACMAIgAjACQAJAAjACUAJAAlACYAJgAlACcAJgAnACgAKAAnACkAKAApACoAKgApACsAKgArACwALAArAC0ALAAtAC4ALgAtAC8ALgAvADAAMAAvADEAMAAxADIAMgAxADMAMgAzADQANAAzADUANAA1ADYANgA1ADcANgA3AAAAAAA3AAEAOAA5ADoAOAA6ADsAOAA7ADwAOAA8AD0AOAA9AD4AOAA+AD8AOAA/AEAAOABAAEEAOABBAEIAOABCAEMAOABDAEQAOABEAEUAOABFAEYAOABGAEcAOABHAEgAOABIAEkAOABJAEoAOABKAEsAOABLAEwAOABMAE0AOABNAE4AOABOAE8AOABPAFAAOABQAFEAOABRAFIAOABSAFMAOABTAFQAOABUADkAVQBXAFYAVQBYAFcAVQBZAFgAVQBaAFkAVQBbAFoAVQBcAFsAVQBdAFwAVQBeAF0AVQBfAF4AVQBgAF8AVQBhAGAAVQBiAGEAVQBjAGIAVQBkAGMAVQBlAGQAVQBmAGUAVQBnAGYAVQBoAGcAVQBpAGgAVQBqAGkAVQBrAGoAVQBsAGsAVQBtAGwAVQBuAG0AVQBvAG4AVQBwAG8AVQBxAHAAVQBWAHEA"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 288,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 576,
+      "byteLength": 72,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 648,
+      "byteLength": 1368,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 2016,
+      "byteLength": 1368,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3384,
+      "byteLength": 672,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3",
+      "min": [
+        -0.5,
+        -0.5,
+        -0.5
+      ],
+      "max": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 114,
+      "type": "VEC3",
+      "min": [
+        -0.5,
+        -0.5,
+        -0.5
+      ],
+      "max": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 114,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5123,
+      "count": 336,
+      "type": "SCALAR"
+    }
+  ]
+}

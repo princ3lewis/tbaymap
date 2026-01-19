@@ -3,6 +3,16 @@ import React from 'react';
 
 export const TBAY_COORDS = { lat: 48.3809, lng: -89.2477 };
 
+export const TBAY_LOCATIONS = [
+  { id: 'marina-park', name: 'Marina Park (Waterfront)', coords: { lat: 48.4349, lng: -89.2107 } },
+  { id: 'hillcrest-park', name: 'Hillcrest Park', coords: { lat: 48.4209, lng: -89.2489 } },
+  { id: 'intercity', name: 'Intercity Shopping Centre', coords: { lat: 48.3962, lng: -89.2713 } },
+  { id: 'lakehead-university', name: 'Lakehead University', coords: { lat: 48.4231, lng: -89.2582 } },
+  { id: 'confederation', name: 'Confederation College', coords: { lat: 48.3793, lng: -89.2902 } },
+  { id: 'chippewa-park', name: 'Chippewa Park', coords: { lat: 48.3247, lng: -89.2042 } },
+  { id: 'fort-william-gardens', name: 'Fort William Gardens', coords: { lat: 48.4382, lng: -89.2234 } }
+];
+
 export const MedicineWheelColors = {
   white: '#FFFFFF',
   yellow: '#FBBF24',

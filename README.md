@@ -29,6 +29,7 @@ Routes:
 - `/live` authenticated app experience
 - `/login` and `/signup` for auth
 - `/admin` admin console (requires admin access)
+- `/admin/assembly` assembly station with 3D model + build steps
 
 ## Firebase App Hosting
 

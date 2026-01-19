@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { TbayEvent, UserLocation } from '../types';
+import { formatEventTiming, formatRelativeTime } from '../utils/time';
 
 interface Props {
   event: TbayEvent;
@@ -28,6 +30,14 @@ const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation }) =>
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
   const initialDistanceRef = useRef<number | null>(null);
+  const creatorDistance =
+    event.creatorLocation && event.creatorLocationEnabled
+      ? distanceKm(event.creatorLocation, event.location)
+      : null;
+  const creatorAtEvent = creatorDistance !== null && creatorDistance < 0.15;
+  const creatorUpdateLabel = event.creatorLocationUpdatedAt
+    ? formatRelativeTime(event.creatorLocationUpdatedAt)
+    : null;
 
   useEffect(() => {
     if (!userLocation) {
@@ -75,12 +85,44 @@ const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation }) =>
             </div>
           </div>
         </div>
-        <button 
-          onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/events/${event.id}`}
+            target="_blank"
+            className="px-3 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            Details
+          </Link>
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-xl mx-auto mt-3 px-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div className="bg-slate-800/80 text-slate-200 rounded-2xl px-4 py-3 border border-slate-700">
+          <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Event timing</p>
+          <p className="font-semibold">{formatEventTiming(event)}</p>
+          {event.locationName && (
+            <p className="text-[11px] text-slate-400 mt-1">Location: {event.locationName}</p>
+          )}
+        </div>
+        <div className="bg-slate-800/80 text-slate-200 rounded-2xl px-4 py-3 border border-slate-700">
+          <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Creator location</p>
+          {creatorDistance === null ? (
+            <p className="font-semibold">Location hidden</p>
+          ) : (
+            <p className="font-semibold">
+              {creatorAtEvent ? 'Creator is at the event' : `${creatorDistance.toFixed(1)} km away`}
+            </p>
+          )}
+          {creatorUpdateLabel && (
+            <p className="text-[11px] text-slate-400 mt-1">Updated {creatorUpdateLabel}</p>
+          )}
+        </div>
       </div>
       
       {/* Visual Path Simulation */}

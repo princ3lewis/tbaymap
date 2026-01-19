@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EventCategory, TbayEvent, UserLocation } from '../types';
 import { TBAY_COORDS } from '../constants';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
+import { formatEventTiming } from '../utils/time';
 
 interface Props {
   events: TbayEvent[];
   onSelectEvent: (event: TbayEvent) => void;
   userLocation?: UserLocation | null;
   locationError?: string | null;
+  locationSharing?: boolean;
 }
 
 const categoryColor = (category: EventCategory) => {
@@ -44,7 +46,7 @@ const CategoryEmoji = (category: EventCategory) => {
   }
 };
 
-const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locationError }) => {
+const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locationError, locationSharing }) => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) || null,
@@ -74,7 +76,7 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
     }
 
     let cancelled = false;
-    loadGoogleMaps(apiKey)
+    loadGoogleMaps(apiKey, ['places'])
       .then(async (google) => {
         if (cancelled || !mapContainerRef.current) {
           return;
@@ -137,12 +139,13 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
     });
 
     events.forEach((event) => {
+      const isEnded = event.status === 'ended';
       const existing = markers.get(event.id);
       const icon = {
         path: google.maps.SymbolPath.CIRCLE,
         scale: event.isSpiritMarker ? 10 : 8,
-        fillColor: categoryColor(event.category),
-        fillOpacity: 0.95,
+        fillColor: isEnded ? '#94A3B8' : categoryColor(event.category),
+        fillOpacity: isEnded ? 0.5 : 0.95,
         strokeColor: '#FFFFFF',
         strokeWeight: 2
       };
@@ -204,16 +207,22 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
     }
   }, [selectedEventId, selectedEvent]);
 
-  const gpsLabel = userLocation
-    ? 'GPS Active'
-    : locationError
-      ? 'Location Blocked'
-      : 'Locating...';
-  const gpsDotClass = userLocation
-    ? 'bg-green-400 animate-pulse'
-    : locationError
-      ? 'bg-amber-400'
-      : 'bg-yellow-400';
+  const gpsLabel =
+    locationSharing === false
+      ? 'Location Off'
+      : userLocation
+        ? 'GPS Active'
+        : locationError
+          ? 'Location Blocked'
+          : 'Locating...';
+  const gpsDotClass =
+    locationSharing === false
+      ? 'bg-slate-400'
+      : userLocation
+        ? 'bg-green-400 animate-pulse'
+        : locationError
+          ? 'bg-amber-400'
+          : 'bg-yellow-400';
 
   return (
     <div className="bg-slate-900 rounded-[3rem] w-full h-[65vh] min-h-[450px] relative overflow-hidden border-[12px] border-white shadow-2xl group transition-all duration-700">
@@ -267,7 +276,7 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
                     )}
                   </div>
                   <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">
-                    {selectedEvent.participants} Attending • {selectedEvent.time}
+                    {selectedEvent.participants} Attending • {formatEventTiming(selectedEvent)}
                   </p>
                 </div>
               </div>
@@ -290,8 +299,11 @@ const TbayMap: React.FC<Props> = ({ events, onSelectEvent, userLocation, locatio
               >
                 🚀 Details & Directions
               </button>
-              <button className="px-5 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-xs hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-[0.98]">
-                Join
+              <button
+                onClick={() => onSelectEvent(selectedEvent)}
+                className="px-5 py-4 bg-indigo-100 text-indigo-600 rounded-2xl font-bold text-xs hover:bg-indigo-200 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-[0.98]"
+              >
+                View Feed
               </button>
             </div>
           </div>

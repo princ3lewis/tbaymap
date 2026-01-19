@@ -1133,12 +1133,18 @@ export default function AdminPage() {
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Admin Console</p>
             <h1 className="text-2xl font-serif text-slate-900">Tbay Connect Command Center</h1>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
             <Link
               href="/"
               className="px-4 py-2 rounded-full border border-slate-200 text-xs font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
             >
               Home
+            </Link>
+            <Link
+              href="/admin/assembly"
+              className="px-4 py-2 rounded-full border border-slate-200 text-xs font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+            >
+              Assembly
             </Link>
             <Link
               href="/live"
@@ -1205,7 +1211,7 @@ export default function AdminPage() {
                 Pick the stack, order parts, and follow wiring guidance before assembly.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleSeedBom}

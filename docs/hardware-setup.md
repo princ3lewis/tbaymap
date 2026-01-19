@@ -71,6 +71,11 @@ Log failures in QA reports and do not ship until resolved.
 
 ## 7) Field activation
 
+## 8) 3D model
+
+The assembly page ships with a custom concept model in `public/models/tbay-bracelet.gltf`.
+Replace this file with your final exported CAD model when ready.
+
 1. Pair the device with the mobile app.
 2. Confirm the device appears in the user account.
 3. Mark the Activation stage complete.
