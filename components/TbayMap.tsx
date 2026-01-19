@@ -12,7 +12,7 @@ interface Props {
   locationSharing?: boolean;
 }
 
-const categoryColor = (category: EventCategory) => {
+const categoryColor = (category: string) => {
   switch (category) {
     case EventCategory.SPORTS:
       return '#2563EB';
@@ -29,7 +29,7 @@ const categoryColor = (category: EventCategory) => {
   }
 };
 
-const CategoryEmoji = (category: EventCategory) => {
+const CategoryEmoji = (category: string) => {
   switch (category) {
     case EventCategory.SPORTS:
       return '⚽';
@@ -42,7 +42,7 @@ const CategoryEmoji = (category: EventCategory) => {
     case EventCategory.TRADITIONAL:
       return '🦅';
     default:
-      return '📍';
+      return '🏷️';
   }
 };
 

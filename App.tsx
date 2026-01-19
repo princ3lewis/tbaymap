@@ -19,6 +19,7 @@ import {
   joinEvent,
   leaveEvent,
   subscribeToEvents,
+  updateEvent,
   updateCreatorLocation
 } from './services/eventsService';
 import {
@@ -221,6 +222,7 @@ const App: React.FC = () => {
   const [newEvent, setNewEvent] = useState({
     title: '',
     category: EventCategory.SPORTS,
+    customCategory: '',
     description: '',
     locationMode: 'current' as 'current' | 'preset' | 'custom',
     locationId: TBAY_LOCATIONS[0]?.id ?? '',
@@ -231,9 +233,11 @@ const App: React.FC = () => {
     endAt: '',
     shareLocation: true,
     ageMin: '',
+    maxParticipants: '',
     collaborators: ''
   });
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -245,7 +249,29 @@ const App: React.FC = () => {
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [endingId, setEndingId] = useState<string | null>(null);
   const [dailyWisdom, setDailyWisdom] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    category: EventCategory.SPORTS,
+    customCategory: '',
+    description: '',
+    startAt: '',
+    endAt: '',
+    ageMin: '',
+    maxParticipants: '',
+    collaborators: ''
+  });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<
+    { id: string; title: string; message: string; eventId: string; createdAt: string; read: boolean }[]
+  >([]);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const creatorUpdateRef = useRef<{ at: number; lat: number; lng: number } | null>(null);
+  const notificationReadyRef = useRef(false);
+  const previousEventsRef = useRef<Map<string, TbayEvent>>(new Map());
   const mapsApiRef = useRef<any>(null);
   const autocompleteRef = useRef<any>(null);
   const geocoderRef = useRef<any>(null);
@@ -291,7 +317,25 @@ const App: React.FC = () => {
     : isDeviceLinked
       ? 'Disconnect'
       : 'Connect';
-  const minDateTime = useMemo(() => toDateTimeInputValue(new Date()), [isCreating]);
+  const minDateTime = useMemo(() => toDateTimeInputValue(new Date()), [isCreating, isEditing]);
+  const unreadNotifications = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications]
+  );
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  const toggleNotifications = useCallback(() => {
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (!prev && next) {
+        setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const fetchWisdom = async () => {
@@ -302,6 +346,30 @@ const App: React.FC = () => {
     };
     fetchWisdom();
   }, []);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('tbay-theme');
+    if (stored === 'dark' || stored === 'light') {
+      setTheme(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('tbay-theme', theme);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
+
+  useEffect(() => {
+    if (mediaFiles.length === 0) {
+      setMediaPreviews([]);
+      return;
+    }
+    const urls = mediaFiles.map((file) => URL.createObjectURL(file));
+    setMediaPreviews(urls);
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [mediaFiles]);
 
   useEffect(() => {
     if (!locationSharing && newEvent.shareLocation) {
@@ -316,6 +384,92 @@ const App: React.FC = () => {
     const unsubscribe = subscribeToEvents(setEvents);
     return () => unsubscribe();
   }, [firebaseEnabled]);
+
+  useEffect(() => {
+    if (events.length === 0) {
+      return;
+    }
+    if (!notificationReadyRef.current) {
+      previousEventsRef.current = new Map(events.map((event) => [event.id, event]));
+      notificationReadyRef.current = true;
+      return;
+    }
+
+    const interestSet = new Set(profile?.interests?.map((item) => item.toLowerCase()) ?? []);
+    const nextNotifications: {
+      id: string;
+      title: string;
+      message: string;
+      eventId: string;
+      createdAt: string;
+      read: boolean;
+    }[] = [];
+    const prevMap = previousEventsRef.current;
+
+    events.forEach((event) => {
+      if (event.status === 'ended') {
+        return;
+      }
+      const prev = prevMap.get(event.id);
+      const categoryLabel = event.category?.toString().toLowerCase();
+      const interestMatch = categoryLabel ? interestSet.has(categoryLabel) : false;
+      const friendInvolved = Boolean(
+        (event.creatorId && followingIds.includes(event.creatorId)) ||
+          (event.attendeeIds ?? []).some((id) => followingIds.includes(id))
+      );
+      const distance = userLocation ? distanceKm(userLocation, event.location) : null;
+      const isNearby = distance !== null && distance <= 10;
+
+      if (!prev) {
+        if (interestMatch || friendInvolved || isNearby) {
+          const reason = friendInvolved
+            ? `From ${event.creatorName ?? event.creator}`
+            : interestMatch
+              ? `${event.category} interest`
+              : 'Nearby';
+          nextNotifications.push({
+            id: `new-${event.id}`,
+            title: event.title,
+            message: `New event • ${reason}`,
+            eventId: event.id,
+            createdAt: new Date().toISOString(),
+            read: false
+          });
+        }
+        return;
+      }
+
+      const previousAttendees = new Set(prev.attendeeIds ?? []);
+      const currentAttendees = new Set(event.attendeeIds ?? []);
+      const newAttendeeIds = [...currentAttendees].filter((id) => !previousAttendees.has(id));
+      const newFriendIds = newAttendeeIds.filter((id) => followingIds.includes(id));
+      if (newFriendIds.length > 0) {
+        const friendNames = (event.attendees ?? [])
+          .filter((attendee) => newFriendIds.includes(attendee.id))
+          .map((attendee) => attendee.name)
+          .filter(Boolean);
+        const friendLabel = friendNames.length > 0 ? friendNames.join(', ') : 'A friend';
+        nextNotifications.push({
+          id: `friend-${event.id}-${newFriendIds.join('-')}`,
+          title: event.title,
+          message: `${friendLabel} joined`,
+          eventId: event.id,
+          createdAt: new Date().toISOString(),
+          read: false
+        });
+      }
+    });
+
+    if (nextNotifications.length > 0) {
+      setNotifications((prev) => {
+        const existing = new Set(prev.map((item) => item.id));
+        const merged = [...nextNotifications.filter((item) => !existing.has(item.id)), ...prev];
+        return merged.slice(0, 50);
+      });
+    }
+
+    previousEventsRef.current = new Map(events.map((event) => [event.id, event]));
+  }, [events, followingIds, profile?.interests, userLocation]);
 
   useEffect(() => {
     if (!firebaseEnabled || !user) {
@@ -475,6 +629,28 @@ const App: React.FC = () => {
         ? 'bg-amber-50 border-amber-100 text-amber-700'
         : 'bg-yellow-50 border-yellow-100 text-yellow-700'
     : 'bg-slate-100 border-slate-200 text-slate-500';
+  const buildDirectionsUrl = useCallback(
+    (event: TbayEvent) => {
+      const params = new URLSearchParams();
+      params.set('api', '1');
+      params.set('destination', `${event.location.lat},${event.location.lng}`);
+      params.set('travelmode', 'walking');
+      params.set('dir_action', 'navigate');
+      if (userLocation) {
+        params.set('origin', `${userLocation.lat},${userLocation.lng}`);
+      }
+      return `https://www.google.com/maps/dir/?${params.toString()}`;
+    },
+    [userLocation]
+  );
+  const handleNavigateEvent = useCallback(
+    (event: TbayEvent) => {
+      const url = buildDirectionsUrl(event);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setActiveNavEvent(event);
+    },
+    [buildDirectionsUrl]
+  );
 
   const userScheduledEvents = useMemo(
     () =>
@@ -493,12 +669,17 @@ const App: React.FC = () => {
     [userScheduledEvents]
   );
   const activeEvents = useMemo(() => events.filter((event) => event.status !== 'ended'), [events]);
+  const editingEvent = useMemo(
+    () => events.find((event) => event.id === editEventId) ?? null,
+    [events, editEventId]
+  );
   const sortedEvents = useMemo(() => {
     const interestSet = new Set(profile?.interests?.map((item) => item.toLowerCase()) ?? []);
     return [...activeEvents]
       .map((event) => {
         const distance = userLocation ? distanceKm(userLocation, event.location) : Number.POSITIVE_INFINITY;
-        const interestMatch = interestSet.has(event.category.toLowerCase());
+        const categoryLabel = event.category?.toString().toLowerCase();
+        const interestMatch = categoryLabel ? interestSet.has(categoryLabel) : false;
         const friendInvolved = Boolean(
           (event.creatorId && followingIds.includes(event.creatorId)) ||
             (event.attendeeIds ?? []).some((id) => followingIds.includes(id))
@@ -905,6 +1086,12 @@ const App: React.FC = () => {
       setCreateError('Add a title and description to post your gathering.');
       return;
     }
+    const categoryLabel =
+      newEvent.category === EventCategory.CUSTOM ? newEvent.customCategory.trim() : newEvent.category;
+    if (!categoryLabel) {
+      setCreateError('Choose a category or add a custom one.');
+      return;
+    }
     if (firebaseEnabled && !user) {
       setCreateError('Log in to post a gathering.');
       return;
@@ -925,6 +1112,17 @@ const App: React.FC = () => {
     }
     if (startAt && endAt && endAt <= startAt) {
       setCreateError('End time must be after the start time.');
+      return;
+    }
+    const maxParticipantsValue = newEvent.maxParticipants
+      ? Number.parseInt(newEvent.maxParticipants, 10)
+      : null;
+    if (maxParticipantsValue !== null && Number.isNaN(maxParticipantsValue)) {
+      setCreateError('Max participants must be a number.');
+      return;
+    }
+    if (maxParticipantsValue !== null && maxParticipantsValue < 1) {
+      setCreateError('Max participants must be at least 1.');
       return;
     }
     const draftWindow = resolveEventWindow(startAt, endAt);
@@ -980,7 +1178,7 @@ const App: React.FC = () => {
     const eventPayload: CreateEventPayload = {
       title,
       description,
-      category: newEvent.category,
+      category: categoryLabel,
       location,
       locationName,
       ageMin: ageMinValue,
@@ -993,14 +1191,15 @@ const App: React.FC = () => {
       creatorLocation: newEvent.shareLocation ? userLocation : null,
       creatorLocationEnabled: Boolean(newEvent.shareLocation && userLocation && locationSharing),
       startAt,
-      endAt
+      endAt,
+      maxParticipants: maxParticipantsValue ?? undefined
     };
 
     const localEvent: TbayEvent = {
       id: Math.random().toString(36).substr(2, 9),
       title,
       description,
-      category: newEvent.category,
+      category: categoryLabel,
       location,
       locationName,
       creator: userName,
@@ -1016,9 +1215,11 @@ const App: React.FC = () => {
       attendees: [{ id: userId, name: userName, joinedAt: new Date().toISOString() }],
       attendeeIds: [userId],
       participants: 1,
+      maxParticipants: maxParticipantsValue ?? undefined,
       ageMin: ageMinValue,
       mediaUrls: [],
-      collaborators
+      collaborators,
+      editCount: 0
     };
 
     try {
@@ -1037,6 +1238,7 @@ const App: React.FC = () => {
       setNewEvent({
         title: '',
         category: EventCategory.SPORTS,
+        customCategory: '',
         description: '',
         locationMode: 'current',
         locationId: TBAY_LOCATIONS[0]?.id ?? '',
@@ -1047,6 +1249,7 @@ const App: React.FC = () => {
         endAt: '',
         shareLocation: locationSharing,
         ageMin: '',
+        maxParticipants: '',
         collaborators: ''
       });
       setMediaFiles([]);
@@ -1120,6 +1323,8 @@ const App: React.FC = () => {
         console.error('Failed to join event:', error);
         if (error instanceof Error && error.message === 'age-restricted') {
           setJoinError(`This event is ${event.ageMin}+ only.`);
+        } else if (error instanceof Error && error.message === 'event-full') {
+          setJoinError('This event is full.');
         } else {
           setJoinError('Unable to join right now. Please try again.');
         }
@@ -1221,6 +1426,7 @@ const App: React.FC = () => {
     setNewEvent((prev) => ({
       ...prev,
       title: '',
+      customCategory: '',
       description: '',
       locationMode: 'current',
       locationId: TBAY_LOCATIONS[0]?.id ?? '',
@@ -1230,6 +1436,7 @@ const App: React.FC = () => {
       startAt: '',
       endAt: '',
       ageMin: '',
+      maxParticipants: '',
       collaborators: ''
     }));
     setPlaceQuery('');
@@ -1241,15 +1448,186 @@ const App: React.FC = () => {
     mapPickerMarkerRef.current = null;
   };
 
+  const openEditModal = (event: TbayEvent) => {
+    const isPresetCategory =
+      Object.values(EventCategory).includes(event.category as EventCategory) &&
+      event.category !== EventCategory.CUSTOM;
+    const startAtValue = event.startAt ? toDateValue(event.startAt) : null;
+    const endAtValue = event.endAt ? toDateValue(event.endAt) : null;
+    setEditEventId(event.id);
+    setEditError(null);
+    setEditForm({
+      title: event.title,
+      category: (isPresetCategory ? event.category : EventCategory.CUSTOM) as EventCategory,
+      customCategory: isPresetCategory ? '' : event.category.toString(),
+      description: event.description,
+      startAt: startAtValue ? toDateTimeInputValue(startAtValue) : '',
+      endAt: endAtValue ? toDateTimeInputValue(endAtValue) : '',
+      ageMin: typeof event.ageMin === 'number' ? `${event.ageMin}` : '',
+      maxParticipants: typeof event.maxParticipants === 'number' ? `${event.maxParticipants}` : '',
+      collaborators: event.collaborators?.map((collaborator) => collaborator.name).join(', ') ?? ''
+    });
+    setIsEditing(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditing(false);
+    setEditEventId(null);
+    setEditError(null);
+    setIsSubmittingEdit(false);
+  };
+
+  const handleEditEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEvent) {
+      return;
+    }
+    const title = editForm.title.trim();
+    const description = editForm.description.trim();
+    if (!title || !description) {
+      setEditError('Add a title and description before saving.');
+      return;
+    }
+    if (firebaseEnabled && !user) {
+      setEditError('Log in to edit this event.');
+      return;
+    }
+    const categoryLabel =
+      editForm.category === EventCategory.CUSTOM ? editForm.customCategory.trim() : editForm.category;
+    if (!categoryLabel) {
+      setEditError('Choose a category or add a custom one.');
+      return;
+    }
+    const startAt = editForm.startAt ? new Date(editForm.startAt) : null;
+    const endAt = editForm.endAt ? new Date(editForm.endAt) : null;
+    if (startAt && Number.isNaN(startAt.getTime())) {
+      setEditError('Start time is invalid.');
+      return;
+    }
+    if (endAt && Number.isNaN(endAt.getTime())) {
+      setEditError('End time is invalid.');
+      return;
+    }
+    const now = new Date();
+    if (endAt && endAt < now) {
+      setEditError('End time cannot be in the past.');
+      return;
+    }
+    if (startAt && endAt && endAt <= startAt) {
+      setEditError('End time must be after the start time.');
+      return;
+    }
+    const maxParticipantsValue = editForm.maxParticipants
+      ? Number.parseInt(editForm.maxParticipants, 10)
+      : null;
+    if (maxParticipantsValue !== null && Number.isNaN(maxParticipantsValue)) {
+      setEditError('Max participants must be a number.');
+      return;
+    }
+    if (maxParticipantsValue !== null && maxParticipantsValue < 1) {
+      setEditError('Max participants must be at least 1.');
+      return;
+    }
+    if (maxParticipantsValue !== null && maxParticipantsValue < (editingEvent.participants ?? 1)) {
+      setEditError('Max participants cannot be less than current attendance.');
+      return;
+    }
+    const ageMinValue = editForm.ageMin ? Number.parseInt(editForm.ageMin, 10) : null;
+    if (ageMinValue !== null && Number.isNaN(ageMinValue)) {
+      setEditError('Age restriction must be a number.');
+      return;
+    }
+    if (ageMinValue !== null && ageMinValue < 0) {
+      setEditError('Age restriction must be a positive number.');
+      return;
+    }
+
+    const draftWindow = resolveEventWindow(startAt, endAt);
+    const scheduleConflict = findScheduleConflict(draftWindow, editingEvent.id);
+    if (scheduleConflict) {
+      setEditError(`This time overlaps with "${scheduleConflict.title}". Pick another time.`);
+      return;
+    }
+
+    if (isSubmittingEdit) {
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    const collaborators =
+      editForm.collaborators.trim().length > 0
+        ? editForm.collaborators
+            .split(',')
+            .map((name) => name.trim())
+            .filter(Boolean)
+            .map((name) => ({ name }))
+        : [];
+
+    try {
+      if (firebaseEnabled) {
+        await updateEvent({
+          eventId: editingEvent.id,
+          editorId: userId,
+          title,
+          description,
+          category: categoryLabel,
+          location: editingEvent.location,
+          locationName: editingEvent.locationName,
+          startAt,
+          endAt,
+          ageMin: ageMinValue,
+          maxParticipants: maxParticipantsValue,
+          collaborators
+        });
+      } else {
+        setEvents((prev) =>
+          prev.map((event) =>
+            event.id === editingEvent.id
+              ? {
+                  ...event,
+                  title,
+                  description,
+                  category: categoryLabel,
+                  startAt: startAt ? startAt.toISOString() : null,
+                  endAt: endAt ? endAt.toISOString() : null,
+                  ageMin: ageMinValue,
+                  maxParticipants: maxParticipantsValue ?? undefined,
+                  collaborators,
+                  editCount: (event.editCount ?? 0) + 1
+                }
+              : event
+          )
+        );
+      }
+      closeEditModal();
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      if (error instanceof Error && error.message === 'edit-limit') {
+        setEditError('Event edits are limited to one per event.');
+      } else {
+        setEditError('Unable to update the event. Please try again.');
+      }
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
   return (
-    <div className={`min-h-screen bg-slate-50 text-slate-900 pb-24 transition-all duration-500 ${device.blinking ? 'ring-8 ring-indigo-500/20 ring-inset' : ''}`}>
-      <Header deviceStatus={device} />
+    <div className={`min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 pb-24 transition-all duration-500 ${device.blinking ? 'ring-8 ring-indigo-500/20 ring-inset' : ''}`}>
+      <Header
+        deviceStatus={device}
+        onToggleNotifications={toggleNotifications}
+        notificationCount={unreadNotifications}
+        onToggleTheme={toggleTheme}
+        isDark={theme === 'dark'}
+      />
 
       {activeNavEvent && (
         <NavigationOverlay 
-          event={activeNavEvent} 
-          onClose={() => setActiveNavEvent(null)} 
+          event={activeNavEvent}
+          onClose={() => setActiveNavEvent(null)}
           userLocation={userLocation}
+          mapsUrl={buildDirectionsUrl(activeNavEvent)}
         />
       )}
 
@@ -1257,7 +1635,7 @@ const App: React.FC = () => {
         {activeTab === 'feed' ? (
           <>
             {!activeNavEvent && (
-              <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="bg-white dark:bg-slate-900/70 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
                 <button
                   type="button"
                   onClick={openCreateModal}
@@ -1267,7 +1645,7 @@ const App: React.FC = () => {
                 </button>
                 <button 
                   onClick={openCreateModal}
-                  className="flex-1 text-left px-5 py-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-500 transition-colors font-medium"
+                  className="flex-1 text-left px-5 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-slate-500 dark:text-slate-300 transition-colors font-medium"
                 >
                   Start a practice or BBQ...
                 </button>
@@ -1276,36 +1654,38 @@ const App: React.FC = () => {
 
             {!activeNavEvent && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white rounded-[1.5rem] p-4 border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className="bg-white dark:bg-slate-900/70 rounded-[1.5rem] p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Location</p>
-                    <p className="text-sm font-semibold text-slate-700">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Location</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       {locationSharing ? 'Sharing on' : 'Sharing off'}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       {locationSharing ? 'Visible to events you host.' : 'Hidden from other attendees.'}
                     </p>
                   </div>
                   <button
                     onClick={() => setLocationSharing((prev) => !prev)}
                     className={`px-4 py-2 rounded-full text-[11px] font-bold ${
-                      locationSharing ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                      locationSharing
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200'
                     }`}
                   >
                     {locationSharing ? 'On' : 'Off'}
                   </button>
                 </div>
-                <div className="bg-white rounded-[1.5rem] p-4 border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className="bg-white dark:bg-slate-900/70 rounded-[1.5rem] p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Device</p>
-                    <p className="text-sm font-semibold text-slate-700">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Device</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       {devicePrimaryLabel}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       {deviceSecondaryLabel}
                     </p>
                     {isDeviceLinked && deviceLastSeenLabel && (
-                      <p className="text-[10px] text-slate-400 mt-1">Last seen {deviceLastSeenLabel}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Last seen {deviceLastSeenLabel}</p>
                     )}
                     {user && (
                       <Link
@@ -1334,8 +1714,42 @@ const App: React.FC = () => {
             )}
 
             {!activeNavEvent && joinError && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-[1.5rem] px-4 py-3 text-xs font-semibold">
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/30 text-amber-700 dark:text-amber-200 rounded-[1.5rem] px-4 py-3 text-xs font-semibold">
                 {joinError}
+              </div>
+            )}
+
+            {!activeNavEvent && showNotifications && (
+              <div className="bg-white dark:bg-slate-900/70 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                    Notifications
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={toggleNotifications}
+                    className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest"
+                  >
+                    Close
+                  </button>
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">No new updates yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {notifications.map((notice) => (
+                      <Link
+                        key={notice.id}
+                        href={`/events/${notice.eventId}`}
+                        target="_blank"
+                        className="block rounded-2xl border border-slate-100 dark:border-slate-800 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                      >
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{notice.title}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{notice.message}</p>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1367,6 +1781,7 @@ const App: React.FC = () => {
                   const ageMissing = ageMin !== null && (profile?.age === null || typeof profile?.age !== 'number');
                   const ageRestricted = ageMin !== null && typeof profile?.age === 'number' && profile.age < ageMin;
                   const canJoin = !(isFull || isEnded || hasConflict || ageMissing || ageRestricted);
+                  const canEdit = Boolean(event.creatorId && event.creatorId === userId && (event.editCount ?? 0) < 1 && !isEnded);
                   const joinDisabledReason = isEnded
                     ? 'Event ended'
                     : isFull
@@ -1385,12 +1800,14 @@ const App: React.FC = () => {
                   onJoin={handleJoin}
                   onLeave={handleLeave}
                   onEnd={handleEndEvent}
-                  onNavigate={() => setActiveNavEvent(event)}
+                  onNavigate={handleNavigateEvent}
+                  onEdit={openEditModal}
                   isJoining={joiningId === event.id || leavingId === event.id || endingId === event.id}
                   hasJoined={Boolean(event.attendeeIds?.includes(userId))}
                   canJoin={canJoin}
                   joinDisabledReason={joinDisabledReason}
                   isCreator={Boolean(event.creatorId && event.creatorId === userId)}
+                  canEdit={canEdit}
                 />
                   );
                 })()
@@ -1420,11 +1837,11 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 z-40">
+      <nav className="fixed bottom-0 inset-x-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 z-40">
         <div className="max-w-xl mx-auto px-10 h-20 flex items-center justify-between">
           <button 
             onClick={() => setActiveTab('feed')}
-            className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'feed' ? 'text-indigo-600 scale-110' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'feed' ? 'text-indigo-600 scale-110' : 'text-slate-400 dark:text-slate-500'}`}
           >
             <span className="text-xl">📱</span>
             <span className="text-[10px] font-bold uppercase">Feed</span>
@@ -1432,14 +1849,14 @@ const App: React.FC = () => {
           
           <button 
             onClick={openCreateModal}
-            className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-100 -mt-10 border-4 border-white active:scale-90 transition-transform"
+            className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-100 dark:shadow-indigo-500/30 -mt-10 border-4 border-white dark:border-slate-900 active:scale-90 transition-transform"
           >
             <span className="text-2xl font-bold">+</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('map')}
-            className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'map' ? 'text-indigo-600 scale-110' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'map' ? 'text-indigo-600 scale-110' : 'text-slate-400 dark:text-slate-500'}`}
           >
             <span className="text-xl">📍</span>
             <span className="text-[10px] font-bold uppercase">Map</span>
@@ -1453,19 +1870,19 @@ const App: React.FC = () => {
           onClick={closeCreateModal}
         >
           <div
-            className="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4 gap-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Create gathering</h2>
-                <p className="text-xs text-slate-500">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create gathering</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Send an invite to people nearby who share this interest.
                 </p>
               </div>
               <button
                 onClick={closeCreateModal}
-                className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 font-bold hover:bg-slate-100 transition-colors"
+                className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 type="button"
               >
                 ✕
@@ -1490,9 +1907,11 @@ const App: React.FC = () => {
                   className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newEvent.category}
                   onChange={(event) => {
+                    const nextCategory = event.target.value as EventCategory;
                     setNewEvent((prev) => ({
                       ...prev,
-                      category: event.target.value as EventCategory
+                      category: nextCategory,
+                      customCategory: nextCategory === EventCategory.CUSTOM ? prev.customCategory : ''
                     }));
                     setCreateError(null);
                   }}
@@ -1503,6 +1922,17 @@ const App: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                {newEvent.category === EventCategory.CUSTOM && (
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Type your own category"
+                    value={newEvent.customCategory}
+                    onChange={(event) => {
+                      setNewEvent((prev) => ({ ...prev, customCategory: event.target.value }));
+                      setCreateError(null);
+                    }}
+                  />
+                )}
               </label>
               <label className="block">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -1680,19 +2110,35 @@ const App: React.FC = () => {
                 </label>
                 <label className="block">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Collaborators
+                    Max participants
                   </span>
                   <input
+                    type="number"
+                    min={1}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Add co-host names"
-                    value={newEvent.collaborators}
+                    placeholder="50"
+                    value={newEvent.maxParticipants}
                     onChange={(event) => {
-                      setNewEvent((prev) => ({ ...prev, collaborators: event.target.value }));
+                      setNewEvent((prev) => ({ ...prev, maxParticipants: event.target.value }));
                       setCreateError(null);
                     }}
                   />
                 </label>
               </div>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Collaborators
+                </span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Add co-host names"
+                  value={newEvent.collaborators}
+                  onChange={(event) => {
+                    setNewEvent((prev) => ({ ...prev, collaborators: event.target.value }));
+                    setCreateError(null);
+                  }}
+                />
+              </label>
               <label className="block">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Event media</span>
                 <input
@@ -1709,6 +2155,18 @@ const App: React.FC = () => {
                 {mediaFiles.length > 0 && (
                   <div className="mt-2 text-[11px] text-slate-500">
                     {mediaFiles.map((file) => file.name).join(', ')}
+                  </div>
+                )}
+                {mediaPreviews.length > 0 && (
+                  <div className="mt-3 flex gap-3 overflow-x-auto">
+                    {mediaPreviews.map((preview, index) => (
+                      <div
+                        key={`${preview}-${index}`}
+                        className="min-w-[120px] h-20 rounded-2xl overflow-hidden border border-slate-100 bg-slate-100"
+                      >
+                        <img src={preview} alt="Selected media preview" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
                   </div>
                 )}
                 {mediaError && (
@@ -1762,6 +2220,190 @@ const App: React.FC = () => {
                   className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSubmittingEvent ? 'Posting...' : 'Post gathering'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditing && editingEvent && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-start justify-center px-4 py-6 overflow-y-auto"
+          onClick={closeEditModal}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4 gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Edit gathering</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  One edit per event. Location stays locked once posted.
+                </p>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleEditEvent} className="space-y-4">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Title</span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={editForm.title}
+                  onChange={(event) => {
+                    setEditForm((prev) => ({ ...prev, title: event.target.value }));
+                    setEditError(null);
+                  }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Category</span>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={editForm.category}
+                  onChange={(event) => {
+                    const nextCategory = event.target.value as EventCategory;
+                    setEditForm((prev) => ({
+                      ...prev,
+                      category: nextCategory,
+                      customCategory: nextCategory === EventCategory.CUSTOM ? prev.customCategory : ''
+                    }));
+                    setEditError(null);
+                  }}
+                >
+                  {Object.values(EventCategory).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                {editForm.category === EventCategory.CUSTOM && (
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Type your own category"
+                    value={editForm.customCategory}
+                    onChange={(event) => {
+                      setEditForm((prev) => ({ ...prev, customCategory: event.target.value }));
+                      setEditError(null);
+                    }}
+                  />
+                )}
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Description
+                </span>
+                <textarea
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[110px]"
+                  value={editForm.description}
+                  onChange={(event) => {
+                    setEditForm((prev) => ({ ...prev, description: event.target.value }));
+                    setEditError(null);
+                  }}
+                />
+              </label>
+              <div className="rounded-2xl border border-slate-200 px-4 py-3 text-xs text-slate-500">
+                Location locked: {editingEvent.locationName ?? 'Thunder Bay'}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Starts</span>
+                  <input
+                    type="datetime-local"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    min={minDateTime}
+                    value={editForm.startAt}
+                    onChange={(event) => {
+                      setEditForm((prev) => ({ ...prev, startAt: event.target.value }));
+                      setEditError(null);
+                    }}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ends</span>
+                  <input
+                    type="datetime-local"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    min={minDateTime}
+                    value={editForm.endAt}
+                    onChange={(event) => {
+                      setEditForm((prev) => ({ ...prev, endAt: event.target.value }));
+                      setEditError(null);
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Age restriction
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={editForm.ageMin}
+                    onChange={(event) => {
+                      setEditForm((prev) => ({ ...prev, ageMin: event.target.value }));
+                      setEditError(null);
+                    }}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Max participants
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={editForm.maxParticipants}
+                    onChange={(event) => {
+                      setEditForm((prev) => ({ ...prev, maxParticipants: event.target.value }));
+                      setEditError(null);
+                    }}
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Collaborators
+                </span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={editForm.collaborators}
+                  onChange={(event) => {
+                    setEditForm((prev) => ({ ...prev, collaborators: event.target.value }));
+                    setEditError(null);
+                  }}
+                />
+              </label>
+              {editError && (
+                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
+                  {editError}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingEdit ? 'Saving...' : 'Save changes'}
                 </button>
               </div>
             </form>

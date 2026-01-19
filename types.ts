@@ -4,8 +4,11 @@ export enum EventCategory {
   CULTURE = 'Culture',
   FOOD = 'Food',
   COMMUNITY = 'Community',
-  TRADITIONAL = 'Traditional'
+  TRADITIONAL = 'Traditional',
+  CUSTOM = 'Custom'
 }
+
+export type EventCategoryValue = EventCategory | string;
 
 export interface UserLocation {
   lat: number;
@@ -30,7 +33,7 @@ export interface TbayEvent {
   id: string;
   title: string;
   description: string;
-  category: EventCategory;
+  category: EventCategoryValue;
   location: UserLocation;
   creator: string;
   creatorId?: string;
@@ -52,6 +55,7 @@ export interface TbayEvent {
   attendeeIds?: string[];
   participants: number;
   maxParticipants?: number;
+  editCount?: number;
   isSpiritMarker?: boolean; // New: Significant cultural landmark marker
 }
 

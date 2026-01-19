@@ -8,6 +8,7 @@ interface Props {
   event: TbayEvent;
   onClose: () => void;
   userLocation?: UserLocation | null;
+  mapsUrl?: string;
 }
 
 const toRadians = (value: number) => (value * Math.PI) / 180;
@@ -26,7 +27,7 @@ const distanceKm = (from: UserLocation, to: UserLocation) => {
   return earthRadiusKm * c;
 };
 
-const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation }) => {
+const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation, mapsUrl }) => {
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
   const initialDistanceRef = useRef<number | null>(null);
@@ -93,6 +94,16 @@ const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation }) =>
           >
             Details
           </Link>
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="px-3 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 transition-colors"
+            >
+              Open Maps
+            </a>
+          )}
           <button 
             onClick={onClose}
             className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
@@ -124,6 +135,24 @@ const NavigationOverlay: React.FC<Props> = ({ event, onClose, userLocation }) =>
           )}
         </div>
       </div>
+
+      {event.mediaUrls && event.mediaUrls.length > 0 && (
+        <div className="max-w-xl mx-auto mt-3 px-6">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">
+            Event media
+          </div>
+          <div className="flex gap-3 overflow-x-auto">
+            {event.mediaUrls.map((url) => (
+              <div
+                key={url}
+                className="min-w-[140px] h-24 rounded-2xl overflow-hidden border border-slate-700 bg-slate-800"
+              >
+                <img src={url} alt="Event media" className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Visual Path Simulation */}
       <div className="max-w-xl mx-auto mt-2 px-6">

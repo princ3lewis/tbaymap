@@ -1,4 +1,6 @@
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   deleteField,
@@ -14,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { TBAY_COORDS } from '../constants';
-import { EventAttendee, EventCategory, EventStatus, TbayEvent, UserLocation } from '../types';
+import { EventAttendee, EventCategory, EventCategoryValue, EventStatus, TbayEvent, UserLocation } from '../types';
 
 type FirestoreLocation = UserLocation | { latitude: number; longitude: number };
 type FirestoreAttendee = { name?: string; joinedAt?: unknown };
@@ -37,8 +39,11 @@ interface FirestoreEvent {
   creatorLocationUpdatedAt?: unknown;
   creatorLocationEnabled?: boolean;
   time?: string;
+  attendeeIds?: string[];
   participants?: number;
   maxParticipants?: number;
+  editCount?: number;
+  editedAt?: unknown;
   isSpiritMarker?: boolean;
   createdAt?: unknown;
   startAt?: unknown;
@@ -48,10 +53,9 @@ interface FirestoreEvent {
   attendees?: FirestoreAttendeeMap;
 }
 
-const normalizeCategory = (value: unknown): EventCategory => {
-  const categories = Object.values(EventCategory);
-  if (typeof value === 'string' && categories.includes(value as EventCategory)) {
-    return value as EventCategory;
+const normalizeCategory = (value: unknown): string => {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
   }
   return EventCategory.COMMUNITY;
 };
@@ -129,7 +133,11 @@ const normalizeAttendees = (value?: FirestoreAttendeeMap) => {
 };
 
 const normalizeEvent = (id: string, data: FirestoreEvent): TbayEvent => {
-  const { attendees, attendeeIds } = normalizeAttendees(data.attendees);
+  const { attendees, attendeeIds: attendeeIdsFromMap } = normalizeAttendees(data.attendees);
+  const attendeeIds =
+    Array.isArray(data.attendeeIds) && data.attendeeIds.length > 0 ? data.attendeeIds : attendeeIdsFromMap;
+  const participants =
+    typeof data.participants === 'number' ? data.participants : attendeeIds.length || attendees.length || 0;
   return {
     id,
     title: data.title ?? 'Community Gathering',
@@ -160,8 +168,9 @@ const normalizeEvent = (id: string, data: FirestoreEvent): TbayEvent => {
     status: data.status ?? 'active',
     attendees,
     attendeeIds,
-    participants: attendees.length || data.participants || 0,
+    participants,
     maxParticipants: data.maxParticipants,
+    editCount: typeof data.editCount === 'number' ? data.editCount : 0,
     isSpiritMarker: data.isSpiritMarker ?? false
   };
 };
@@ -232,6 +241,30 @@ export const subscribeToEventsByCreator = (
   );
 };
 
+export const subscribeToEventsByAttendee = (
+  attendeeId: string,
+  onEvents: (events: TbayEvent[]) => void
+) => {
+  if (!db) {
+    return () => {};
+  }
+  const eventsRef = collection(db, 'events');
+  const q = query(eventsRef, where('attendeeIds', 'array-contains', attendeeId));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const events = snapshot.docs.map((docSnap) =>
+        normalizeEvent(docSnap.id, docSnap.data() as FirestoreEvent)
+      );
+      onEvents(events);
+    },
+    (error) => {
+      console.error('Attendee events subscribe failed:', error);
+      onEvents([]);
+    }
+  );
+};
+
 export const getEventById = async (eventId: string) => {
   if (!db) {
     return null;
@@ -246,7 +279,7 @@ export const getEventById = async (eventId: string) => {
 export interface CreateEventPayload {
   title: string;
   description: string;
-  category: EventCategory;
+  category: EventCategoryValue;
   location: UserLocation;
   locationName?: string;
   ageMin?: number | null;
@@ -262,6 +295,21 @@ export interface CreateEventPayload {
   endAt?: Date | null;
   maxParticipants?: number;
   isSpiritMarker?: boolean;
+}
+
+export interface UpdateEventPayload {
+  eventId: string;
+  editorId: string;
+  title: string;
+  description: string;
+  category: EventCategoryValue;
+  location: UserLocation;
+  locationName?: string;
+  startAt?: Date | null;
+  endAt?: Date | null;
+  ageMin?: number | null;
+  maxParticipants?: number | null;
+  collaborators?: { id?: string; name: string; email?: string }[];
 }
 
 export const createEvent = async (event: CreateEventPayload) => {
@@ -341,7 +389,10 @@ export const createEvent = async (event: CreateEventPayload) => {
       endAt: event.endAt ?? null,
       status: 'active',
       attendees,
+      attendeeIds: [creatorId],
       participants: 1,
+      editCount: 0,
+      editedAt: null,
       isSpiritMarker: event.isSpiritMarker ?? false
     };
     if (typeof event.maxParticipants === 'number') {
@@ -351,6 +402,52 @@ export const createEvent = async (event: CreateEventPayload) => {
   });
 
   return eventRef.id;
+};
+
+export const updateEvent = async (payload: UpdateEventPayload) => {
+  if (!db) {
+    throw new Error('firebase-not-configured');
+  }
+  const eventRef = doc(db, 'events', payload.eventId);
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(eventRef);
+    if (!snapshot.exists()) {
+      throw new Error('event-not-found');
+    }
+    const eventData = snapshot.data() as FirestoreEvent;
+    if (eventData.creatorId !== payload.editorId) {
+      throw new Error('not-creator');
+    }
+    if (eventData.status && eventData.status !== 'active') {
+      throw new Error('event-ended');
+    }
+    const editCount = typeof eventData.editCount === 'number' ? eventData.editCount : 0;
+    if (editCount >= 1) {
+      throw new Error('edit-limit');
+    }
+
+    const update: Record<string, unknown> = {
+      title: payload.title,
+      description: payload.description,
+      category: payload.category,
+      location: payload.location,
+      locationName: payload.locationName ?? eventData.locationName ?? 'Thunder Bay',
+      startAt: payload.startAt ?? null,
+      endAt: payload.endAt ?? null,
+      ageMin: payload.ageMin ?? null,
+      collaborators: payload.collaborators ?? [],
+      editCount: editCount + 1,
+      editedAt: serverTimestamp()
+    };
+
+    if (typeof payload.maxParticipants === 'number') {
+      update.maxParticipants = payload.maxParticipants;
+    } else if (payload.maxParticipants === null) {
+      update.maxParticipants = deleteField();
+    }
+
+    transaction.update(eventRef, update);
+  });
 };
 
 export const joinEvent = async (eventId: string, userId: string, displayName: string) => {
@@ -381,11 +478,15 @@ export const joinEvent = async (eventId: string, userId: string, displayName: st
     const attendees = (eventData.attendees ?? {}) as FirestoreAttendeeMap;
     const alreadyJoined = Boolean(attendees[userId]);
     const nextCount = Object.keys(attendees).length + (alreadyJoined ? 0 : 1);
+    if (typeof eventData.maxParticipants === 'number' && nextCount > eventData.maxParticipants) {
+      throw new Error('event-full');
+    }
 
     if (!alreadyJoined) {
       transaction.update(eventRef, {
         [`attendees.${userId}`]: { name: displayName, joinedAt: serverTimestamp() },
-        participants: nextCount
+        participants: nextCount,
+        attendeeIds: arrayUnion(userId)
       });
     }
 
@@ -412,7 +513,8 @@ export const leaveEvent = async (eventId: string, userId: string) => {
     if (wasJoined) {
       transaction.update(eventRef, {
         [`attendees.${userId}`]: deleteField(),
-        participants: nextCount
+        participants: nextCount,
+        attendeeIds: arrayRemove(userId)
       });
     }
   });

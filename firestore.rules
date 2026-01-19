@@ -33,7 +33,7 @@ service cloud.firestore {
       let changed = request.resource.data.diff(resource.data).changedKeys();
       return signedIn()
         && resource.data.status != 'ended'
-        && changed.hasOnly(['attendees', 'participants'])
+        && changed.hasOnly(['attendees', 'participants', 'attendeeIds'])
         && attendeeKeysOnlySelf()
         && request.resource.data.participants == eventAttendees(request.resource.data).size();
     }
@@ -48,6 +48,31 @@ service cloud.firestore {
           changed.hasOnly(['creatorLocation', 'creatorLocationUpdatedAt', 'creatorLocationEnabled']) ||
           changed.hasOnly(['mediaUrls'])
         );
+    }
+
+    function creatorEditValid() {
+      let changed = request.resource.data.diff(resource.data).changedKeys();
+      let beforeCount = resource.data.editCount == null ? 0 : resource.data.editCount;
+      let afterCount = request.resource.data.editCount == null ? 0 : request.resource.data.editCount;
+      return signedIn()
+        && request.auth.uid == resource.data.creatorId
+        && request.resource.data.creatorId == resource.data.creatorId
+        && resource.data.status != 'ended'
+        && afterCount == beforeCount + 1
+        && changed.hasOnly([
+          'title',
+          'description',
+          'category',
+          'location',
+          'locationName',
+          'startAt',
+          'endAt',
+          'ageMin',
+          'maxParticipants',
+          'collaborators',
+          'editCount',
+          'editedAt'
+        ]);
     }
 
     match /admins/{email} {
@@ -119,7 +144,7 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.creatorId == request.auth.uid;
-      allow update: if isAdmin() || attendeeUpdateValid() || creatorUpdateValid();
+      allow update: if isAdmin() || attendeeUpdateValid() || creatorUpdateValid() || creatorEditValid();
       allow delete: if isAdmin();
     }
 
