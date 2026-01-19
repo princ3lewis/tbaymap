@@ -33,7 +33,7 @@ const EventCard: React.FC<Props> = ({ event, onJoin, onNavigate, isJoining, hasJ
       setInsight(text || '');
     };
     fetchInsight();
-  }, [event.title]);
+  }, [event.title, event.description]);
 
   const handleSpeak = async () => {
     if (!insight || isSpeaking) return;
@@ -95,7 +95,7 @@ const EventCard: React.FC<Props> = ({ event, onJoin, onNavigate, isJoining, hasJ
           </div>
           {showInsight && (
             <p className="text-[11px] text-amber-800/80 leading-relaxed italic animate-in fade-in slide-in-from-top-1">
-              "{insight}"
+              &quot;{insight}&quot;
             </p>
           )}
         </div>
@@ -104,9 +104,12 @@ const EventCard: React.FC<Props> = ({ event, onJoin, onNavigate, isJoining, hasJ
       <div className="flex items-center justify-between pt-5 border-t border-slate-100">
         <div className="flex items-center gap-3">
           <div className="flex -space-x-2">
-            {[1, 2].map(i => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 overflow-hidden shadow-sm">
-                <img src={`https://picsum.photos/seed/${event.id}-${i}/32/32`} alt="" />
+            {['A', 'B'].map((label, index) => (
+              <div
+                key={`${label}-${index}`}
+                className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 shadow-sm flex items-center justify-center"
+              >
+                <span className="text-[10px] font-bold text-slate-500">{label}</span>
               </div>
             ))}
           </div>

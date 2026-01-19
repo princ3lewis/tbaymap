@@ -16,7 +16,7 @@ const Header: React.FC<Props> = ({ deviceStatus }) => {
     if (showSensors && !lunarText) {
       getLunarInsight().then(setLunarText);
     }
-  }, [showSensors]);
+  }, [showSensors, lunarText]);
 
   return (
     <>

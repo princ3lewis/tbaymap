@@ -56,6 +56,11 @@ Enable Email/Password authentication in Firebase Console before using `/login` a
 
 Admin access is managed in the `/admin` console and stored in the `admins` collection. Seed your first admin by creating a document whose ID is the admin's email.
 
+## Operations playbook
+
+Manufacturing and encoding instructions live in `docs/production-playbook.md`.
+Hardware selection and assembly guidance live in `docs/hardware-setup.md`.
+
 ## Firestore Data Shape
 
 Create a Firestore collection named `events` with documents shaped like:

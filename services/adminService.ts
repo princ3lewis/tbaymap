@@ -742,6 +742,48 @@ export const updateDeviceStage = async (
   });
 };
 
+export const updateDeviceStages = async (
+  id: string,
+  stages: Record<string, { status: ManufacturingStageStatus; notes?: string; updatedBy?: string }>
+) => {
+  if (!db) {
+    throw new Error('Firebase is not configured.');
+  }
+  const updates: Record<string, unknown> = {};
+  Object.entries(stages).forEach(([stageId, stage]) => {
+    updates[`stages.${stageId}`] = {
+      status: stage.status,
+      notes: stage.notes ?? '',
+      updatedBy: stage.updatedBy ?? '',
+      updatedAt: serverTimestamp()
+    };
+  });
+  await updateDoc(doc(db, 'devices', id), updates);
+};
+
+export const markDeviceEncoded = async (
+  id: string,
+  payload: {
+    firmware?: string;
+    keyId?: string;
+    lifecycle?: string;
+    encodedBy?: string;
+    notes?: string;
+  }
+) => {
+  if (!db) {
+    throw new Error('Firebase is not configured.');
+  }
+  await updateDoc(doc(db, 'devices', id), {
+    firmware: payload.firmware ?? '',
+    keyId: payload.keyId ?? '',
+    lifecycle: payload.lifecycle ?? 'ready',
+    encodedBy: payload.encodedBy ?? '',
+    encodedAt: serverTimestamp(),
+    ...(payload.notes ? { notes: payload.notes } : {})
+  });
+};
+
 export const deleteDevice = async (id: string) => {
   if (!db) {
     throw new Error('Firebase is not configured.');

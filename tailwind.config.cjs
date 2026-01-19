@@ -10,8 +10,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'serif']
+        sans: ['Outfit', 'system-ui', 'sans-serif'],
+        serif: ['Playfair Display', 'serif']
       }
     }
   },

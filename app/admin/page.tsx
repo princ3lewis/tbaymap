@@ -31,6 +31,7 @@ import {
   createShipment,
   deleteDevice,
   deleteWaitlistEntry,
+  markDeviceEncoded,
   removeAdmin,
   pingDevice,
   subscribeToAdminStatus,
@@ -46,6 +47,7 @@ import {
   updateBatch,
   updateDevice,
   updateDeviceStage,
+  updateDeviceStages,
   updateFirmwareRelease,
   updateInventoryItem,
   updatePurchaseOrder,
@@ -57,12 +59,20 @@ import {
   MANUFACTURING_STAGES,
   ManufacturingStageStatus
 } from '../../data/manufacturingStages';
+import {
+  CONNECTIVITY_OPTIONS,
+  HARDWARE_BOM,
+  WIRING_CHEAT_SHEET,
+  HardwareBomItem
+} from '../../data/hardwarePlan';
+import { PRODUCTION_PLAYBOOK } from '../../data/productionPlaybook';
 import { WaitlistDeviceType } from '../../services/waitlistService';
 import { TbayEvent } from '../../types';
 
 const deviceStatusOptions: AdminDeviceStatus[] = ['online', 'offline', 'maintenance'];
 const deviceTypeOptions: WaitlistDeviceType[] = ['Bracelet', 'Necklace', 'Ring'];
 const lifecycleOptions = ['new', 'encoding', 'calibration', 'ready', 'assigned', 'retired'];
+const selectedConnectivityId = 'ble-mobile';
 const waitlistStatusOptions = ['new', 'contacted', 'invited', 'converted', 'archived'];
 const stageStatusOptions: ManufacturingStageStatus[] = [
   'not_started',
@@ -136,6 +146,18 @@ export default function AdminPage() {
     keyId: '',
     notes: ''
   });
+  const [encodingDeviceId, setEncodingDeviceId] = useState('');
+  const [encodingKeyId, setEncodingKeyId] = useState('');
+  const [encodingFirmware, setEncodingFirmware] = useState('');
+  const [encodingLifecycle, setEncodingLifecycle] = useState('encoding');
+  const [encodingNotes, setEncodingNotes] = useState('');
+  const [encodingStageFlags, setEncodingStageFlags] = useState({
+    firmware_flash: true,
+    device_encode: true,
+    ble_verify: true
+  });
+  const [encodingStatus, setEncodingStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [encodingMessage, setEncodingMessage] = useState<string | null>(null);
   const [createStatus, setCreateStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [createMessage, setCreateMessage] = useState<string | null>(null);
 
@@ -168,6 +190,7 @@ export default function AdminPage() {
     notes: ''
   });
   const [inventoryMessage, setInventoryMessage] = useState<string | null>(null);
+  const [bomMessage, setBomMessage] = useState<string | null>(null);
 
   const [poItems, setPoItems] = useState<PurchaseOrderItem[]>([]);
   const [poItemDraft, setPoItemDraft] = useState<PurchaseOrderItem>({
@@ -341,6 +364,29 @@ export default function AdminPage() {
     });
   }, [inventoryItems]);
 
+  const preferredFirmware =
+    firmwareReleases.find((release) => release.status === 'released')?.version ??
+    firmwareReleases.find((release) => release.status === 'testing')?.version ??
+    firmwareReleases[0]?.version ??
+    '';
+
+  useEffect(() => {
+    if (!encodingDeviceId) {
+      setEncodingKeyId('');
+      setEncodingFirmware(preferredFirmware);
+      setEncodingLifecycle('encoding');
+      setEncodingNotes('');
+      return;
+    }
+    const selected = devices.find((device) => device.id === encodingDeviceId);
+    if (!selected) {
+      return;
+    }
+    setEncodingKeyId((prev) => prev || selected.keyId || '');
+    setEncodingFirmware((prev) => prev || selected.firmware || preferredFirmware);
+    setEncodingLifecycle((prev) => prev || selected.lifecycle || 'encoding');
+  }, [encodingDeviceId, devices, preferredFirmware]);
+
   const handleDraftChange = (id: string, field: keyof DeviceInput, value: string | number) => {
     setDeviceDrafts((prev) => ({
       ...prev,
@@ -408,6 +454,116 @@ export default function AdminPage() {
     const day = String(now.getDate()).padStart(2, '0');
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
     setNewDevice((prev) => ({ ...prev, serial: `TB-${year}${month}${day}-${rand}` }));
+  };
+
+  const generateKeyId = () => {
+    const rand = Math.random().toString(36).slice(2, 10).toUpperCase();
+    setEncodingKeyId(`KEY-${rand}`);
+  };
+
+  const buildEncodingManifest = (device: AdminDevice) => ({
+    manifestVersion: 1,
+    deviceId: device.deviceId || device.id,
+    serial: device.serial || '',
+    type: device.type,
+    batchId: device.batchId || '',
+    firmware: encodingFirmware || '',
+    keyId: encodingKeyId || '',
+    lifecycle: encodingLifecycle || 'encoding',
+    encodedBy: userEmail || '',
+    issuedAt: new Date().toISOString()
+  });
+
+  const handleCopyManifest = async () => {
+    const device = devices.find((item) => item.id === encodingDeviceId);
+    if (!device) {
+      setEncodingStatus('error');
+      setEncodingMessage('Select a device to generate a manifest.');
+      return;
+    }
+    try {
+      const payload = JSON.stringify(buildEncodingManifest(device), null, 2);
+      await navigator.clipboard.writeText(payload);
+      setEncodingStatus('success');
+      setEncodingMessage('Manifest copied to clipboard.');
+    } catch (error) {
+      console.error('Failed to copy manifest:', error);
+      setEncodingStatus('error');
+      setEncodingMessage('Unable to copy manifest.');
+    }
+  };
+
+  const handleDownloadManifest = () => {
+    const device = devices.find((item) => item.id === encodingDeviceId);
+    if (!device) {
+      setEncodingStatus('error');
+      setEncodingMessage('Select a device to generate a manifest.');
+      return;
+    }
+    const payload = JSON.stringify(buildEncodingManifest(device), null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${device.deviceId || device.id}-manifest.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleMarkEncoded = async () => {
+    const device = devices.find((item) => item.id === encodingDeviceId);
+    if (!device) {
+      setEncodingStatus('error');
+      setEncodingMessage('Select a device to encode.');
+      return;
+    }
+    if (!encodingKeyId || !encodingFirmware) {
+      setEncodingStatus('error');
+      setEncodingMessage('Add a key ID and firmware version.');
+      return;
+    }
+    setEncodingStatus('saving');
+    setEncodingMessage(null);
+    try {
+      await markDeviceEncoded(device.id, {
+        firmware: encodingFirmware,
+        keyId: encodingKeyId,
+        lifecycle: encodingLifecycle || 'ready',
+        encodedBy: userEmail,
+        notes: encodingNotes || undefined
+      });
+      const stageUpdates: Record<string, { status: ManufacturingStageStatus; notes?: string; updatedBy?: string }> = {};
+      if (encodingStageFlags.firmware_flash) {
+        stageUpdates.firmware_flash = {
+          status: 'pass',
+          notes: encodingFirmware,
+          updatedBy: userEmail
+        };
+      }
+      if (encodingStageFlags.device_encode) {
+        stageUpdates.device_encode = {
+          status: 'pass',
+          notes: encodingKeyId,
+          updatedBy: userEmail
+        };
+      }
+      if (encodingStageFlags.ble_verify) {
+        stageUpdates.ble_verify = {
+          status: 'pass',
+          notes: encodingNotes || '',
+          updatedBy: userEmail
+        };
+      }
+      if (Object.keys(stageUpdates).length > 0) {
+        await updateDeviceStages(device.id, stageUpdates);
+      }
+      setEncodingStatus('success');
+      setEncodingMessage('Device encoded and stages updated.');
+    } catch (error) {
+      console.error('Failed to encode device:', error);
+      setEncodingStatus('error');
+      setEncodingMessage('Unable to encode device.');
+    }
   };
 
   const handleSaveDevice = async (id: string) => {
@@ -630,6 +786,64 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddBomItem = async (item: HardwareBomItem) => {
+    setBomMessage(null);
+    const existing = inventoryItems.some(
+      (inventory) => inventory.sku.toLowerCase() === item.sku.toLowerCase()
+    );
+    if (existing) {
+      setBomMessage(`${item.name} already exists in inventory.`);
+      return;
+    }
+    try {
+      await createInventoryItem({
+        name: item.name,
+        sku: item.sku,
+        supplier: item.supplier,
+        category: item.category,
+        onHand: 0,
+        reorderPoint: item.reorderPoint,
+        unitCost: item.unitCost,
+        leadTimeDays: item.leadTimeDays,
+        location: '',
+        notes: item.notes.join(' ')
+      });
+      setBomMessage(`${item.name} added to inventory.`);
+    } catch (error) {
+      console.error('Failed to add BOM item:', error);
+      setBomMessage('Unable to add BOM item.');
+    }
+  };
+
+  const handleSeedBom = async () => {
+    setBomMessage(null);
+    try {
+      for (const item of HARDWARE_BOM) {
+        const existing = inventoryItems.some(
+          (inventory) => inventory.sku.toLowerCase() === item.sku.toLowerCase()
+        );
+        if (!existing) {
+          await createInventoryItem({
+            name: item.name,
+            sku: item.sku,
+            supplier: item.supplier,
+            category: item.category,
+            onHand: 0,
+            reorderPoint: item.reorderPoint,
+            unitCost: item.unitCost,
+            leadTimeDays: item.leadTimeDays,
+            location: '',
+            notes: item.notes.join(' ')
+          });
+        }
+      }
+      setBomMessage('Hardware BOM seeded into inventory.');
+    } catch (error) {
+      console.error('Failed to seed BOM:', error);
+      setBomMessage('Unable to seed BOM.');
+    }
+  };
+
   const handleAddPoItem = () => {
     if (!poItemDraft.name.trim() || !poItemDraft.sku.trim()) {
       setPoMessage('Add SKU and item name.');
@@ -807,6 +1021,9 @@ export default function AdminPage() {
     }
   };
 
+  const encodingDevice = devices.find((device) => device.id === encodingDeviceId);
+  const encodingManifest = encodingDevice ? buildEncodingManifest(encodingDevice) : null;
+
   const onlineDevices = devices.filter((device) => device.status === 'online').length;
   const activeBatches = batches.filter((batch) => batch.status !== 'complete').length;
   const lowStockItems = inventoryItems.filter(
@@ -817,6 +1034,13 @@ export default function AdminPage() {
   ).length;
   const qaIssues = qaReports.filter((report) => report.result === 'fail').length;
   const shipmentsInFlight = shipments.filter((shipment) => shipment.status !== 'delivered').length;
+  const bomByCategory = HARDWARE_BOM.reduce<Record<string, HardwareBomItem[]>>((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = [];
+    }
+    acc[item.category].push(item);
+    return acc;
+  }, {});
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading...</div>;
@@ -976,6 +1200,140 @@ export default function AdminPage() {
         <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
+              <h2 className="text-xl font-bold text-slate-900">Hardware + assembly blueprint</h2>
+              <p className="text-xs text-slate-500">
+                Pick the stack, order parts, and follow wiring guidance before assembly.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSeedBom}
+                className="px-4 py-2 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+              >
+                Seed BOM to inventory
+              </button>
+              {bomMessage && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                  {bomMessage}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {CONNECTIVITY_OPTIONS.map((option) => {
+                  const isSelected = option.id === selectedConnectivityId;
+                  return (
+                    <div
+                      key={option.id}
+                      className={`border rounded-2xl p-4 space-y-2 ${
+                        isSelected ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-bold text-slate-900">{option.title}</h3>
+                        <div className="flex items-center gap-2">
+                          {isSelected && (
+                            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-600">
+                              Selected
+                            </span>
+                          )}
+                          {option.recommended && (
+                            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-600">
+                              Rec
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 break-words">{option.summary}</p>
+                      <div className="text-[11px] text-slate-500 space-y-1 break-words">
+                        <p>Best for: {option.bestFor.join(', ')}</p>
+                        <p>Tradeoffs: {option.tradeoffs.join(', ')}</p>
+                        <p>Needs: {option.components.join(', ')}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-slate-900">Wiring cheat sheet</h3>
+                <div className="space-y-3">
+                  {WIRING_CHEAT_SHEET.map((item) => (
+                    <div key={item.id} className="border border-slate-200 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-slate-700">{item.title}</p>
+                      <ul className="text-xs text-slate-500 list-disc pl-5 mt-2 space-y-1">
+                        {item.notes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Full assembly guide: `docs/hardware-setup.md`
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-slate-900">Recommended BOM</h3>
+                <p className="text-xs text-slate-500">
+                  Add these baseline parts to Inventory, then adjust to your chosen vendors.
+                </p>
+                <div className="space-y-3">
+                  {Object.entries(bomByCategory).map(([category, items]) => (
+                    <details key={category} className="border border-slate-200 rounded-xl p-3">
+                      <summary className="cursor-pointer text-xs font-semibold text-slate-700 break-words">
+                        {category} ({items.length})
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        {items.map((item) => {
+                          const exists = inventoryItems.some(
+                            (inventory) => inventory.sku.toLowerCase() === item.sku.toLowerCase()
+                          );
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex flex-wrap items-start justify-between gap-3 border border-slate-200 rounded-xl p-3"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-800 break-words">
+                                  {item.name} {item.required ? '(required)' : '(optional)'}
+                                </p>
+                                <p className="text-[11px] text-slate-500 break-words">
+                                  SKU {item.sku} • {item.supplier} • {item.perDeviceQty} per device
+                                </p>
+                                <p className="text-[11px] text-slate-500 break-words">{item.purpose}</p>
+                                <p className="text-[11px] text-slate-400 break-words">{item.notes.join(' ')}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddBomItem(item)}
+                                disabled={exists}
+                                className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                {exists ? 'In inventory' : 'Add to inventory'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
               <h2 className="text-xl font-bold text-slate-900">Device registry</h2>
               <p className="text-xs text-slate-500">
                 Register devices, encode IDs, and track manufacturing stages end-to-end.
@@ -1000,7 +1358,7 @@ export default function AdminPage() {
             className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
                   placeholder="Device ID"
@@ -1015,7 +1373,7 @@ export default function AdminPage() {
                   Generate
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
                   placeholder="Serial"
@@ -1141,6 +1499,178 @@ export default function AdminPage() {
             </div>
           </form>
 
+          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+            <div className="border border-slate-200 rounded-2xl p-4 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Encoding station</h3>
+                  <p className="text-xs text-slate-500">
+                    Generate provisioning manifests and mark devices as encoded.
+                  </p>
+                </div>
+                {encodingMessage && (
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full ${
+                      encodingStatus === 'success'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : encodingStatus === 'error'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    {encodingMessage}
+                  </span>
+                )}
+              </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={encodingDeviceId}
+                onChange={(event) => setEncodingDeviceId(event.target.value)}
+              >
+                <option value="">Select device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.label} ({device.deviceId || device.id})
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Key ID"
+                  value={encodingKeyId}
+                    onChange={(event) => setEncodingKeyId(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={generateKeyId}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-white"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="flex flex-col gap-1">
+                  <input
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Firmware version"
+                    value={encodingFirmware}
+                    onChange={(event) => setEncodingFirmware(event.target.value)}
+                    list="firmware-options"
+                  />
+                  <datalist id="firmware-options">
+                    {firmwareReleases.map((release) => (
+                      <option key={release.id} value={release.version} />
+                    ))}
+                  </datalist>
+                </div>
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={encodingLifecycle}
+                  onChange={(event) => setEncodingLifecycle(event.target.value)}
+                >
+                  {lifecycleOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Notes (optional)"
+                  value={encodingNotes}
+                  onChange={(event) => setEncodingNotes(event.target.value)}
+                />
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-500">Stage updates</p>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+                  {[
+                    { id: 'firmware_flash', label: 'Firmware flash' },
+                    { id: 'device_encode', label: 'Device encode' },
+                    { id: 'ble_verify', label: 'BLE verify' }
+                  ].map((stage) => {
+                    const stageKey = stage.id as keyof typeof encodingStageFlags;
+                    return (
+                      <label key={stage.id} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={encodingStageFlags[stageKey]}
+                          onChange={(event) =>
+                            setEncodingStageFlags((prev) => ({
+                              ...prev,
+                              [stageKey]: event.target.checked
+                            }))
+                          }
+                        />
+                        {stage.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
+                <pre className="rounded-2xl bg-slate-950 text-slate-100 text-xs p-4 overflow-auto min-h-[160px]">
+                  {encodingManifest ? JSON.stringify(encodingManifest, null, 2) : 'Select a device to preview.'}
+                </pre>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyManifest}
+                    className="px-4 py-2 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+                  >
+                    Copy manifest
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadManifest}
+                    className="px-4 py-2 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+                  >
+                    Download JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMarkEncoded}
+                    disabled={encodingStatus === 'saving'}
+                    className="px-4 py-2 rounded-full bg-slate-900 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {encodingStatus === 'saving' ? 'Encoding...' : 'Mark encoded'}
+                  </button>
+                </div>
+              </div>
+
+              {encodingDevice && (
+                <p className="text-xs text-slate-500 break-all">
+                  Selected device: {encodingDevice.label} • ID {encodingDevice.deviceId || encodingDevice.id} •
+                  Serial {encodingDevice.serial || '—'}
+                </p>
+              )}
+            </div>
+
+            <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h3 className="text-lg font-bold text-slate-900">Encoding checklist</h3>
+              <p className="text-xs text-slate-500">
+                Follow these steps to program and label the device before QA.
+              </p>
+              <ol className="list-decimal pl-5 text-xs text-slate-600 space-y-2">
+                <li>Confirm the device has passed electronics assembly and power checks.</li>
+                <li>Flash the approved firmware release and verify the version.</li>
+                <li>Use the Encoding station to assign the device ID and key ID.</li>
+                <li>Copy the manifest into the encoder tool and program the device.</li>
+                <li>Verify BLE advertising, then mark the stages as pass.</li>
+              </ol>
+              <p className="text-xs text-slate-500">
+                Detailed instructions live in `docs/production-playbook.md`.
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-4">
             {devices.length === 0 && <div className="text-sm text-slate-500">No devices registered yet.</div>}
             {devices.map((device) => {
@@ -1168,12 +1698,12 @@ export default function AdminPage() {
               return (
                 <div key={device.id} className="border border-slate-200 rounded-2xl p-4 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <h3 className="text-sm font-bold text-slate-900">{device.label}</h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 break-all">
                         {device.type} • ID {device.deviceId || device.id} • Serial {device.serial || '—'}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 break-all">
                         Batch {device.batchId || '—'} • Firmware {device.firmware || '—'} • Key{' '}
                         {device.keyId || '—'}
                       </p>
@@ -1731,7 +2261,7 @@ export default function AdminPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">{item.name}</h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 break-all">
                           SKU {item.sku} • Updated {formatDate(item.updatedAt)}
                         </p>
                       </div>
@@ -1998,7 +2528,7 @@ export default function AdminPage() {
                         ))}
                       </select>
                     </div>
-                    <div className="text-xs text-slate-600">
+                    <div className="text-xs text-slate-600 break-words">
                       {order.items.map((item) => `${item.name} (${item.qty})`).join(', ')}
                     </div>
                     {order.notes && <p className="text-xs text-slate-500">Notes: {order.notes}</p>}
@@ -2088,7 +2618,9 @@ export default function AdminPage() {
                       ))}
                     </select>
                   </div>
-                  {release.checksum && <p className="text-xs text-slate-600">Checksum: {release.checksum}</p>}
+                  {release.checksum && (
+                    <p className="text-xs text-slate-600 break-all">Checksum: {release.checksum}</p>
+                  )}
                   {release.notes && <p className="text-xs text-slate-500">Notes: {release.notes}</p>}
                 </div>
               ))}
@@ -2180,7 +2712,7 @@ export default function AdminPage() {
                 <div key={shipment.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">
+                      <h3 className="text-sm font-bold text-slate-900 break-all">
                         {shipment.carrier || 'Carrier'} • {shipment.tracking || 'Tracking pending'}
                       </h3>
                       <p className="text-xs text-slate-500">
@@ -2204,9 +2736,9 @@ export default function AdminPage() {
                   {shipment.recipientName && (
                     <p className="text-xs text-slate-600">Recipient: {shipment.recipientName}</p>
                   )}
-                  {shipment.address && <p className="text-xs text-slate-500">{shipment.address}</p>}
+                  {shipment.address && <p className="text-xs text-slate-500 break-words">{shipment.address}</p>}
                   {shipment.deviceIds.length > 0 && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 break-all">
                       Devices: {shipment.deviceIds.join(', ')}
                     </p>
                   )}
@@ -2259,7 +2791,7 @@ export default function AdminPage() {
               {admins.map((admin) => (
                 <div key={admin.email} className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{admin.email}</p>
+                    <p className="text-sm font-semibold text-slate-900 break-all">{admin.email}</p>
                     <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
                       Added {formatDate(admin.createdAt)}
                     </p>
@@ -2299,7 +2831,7 @@ export default function AdminPage() {
                       Remove
                     </button>
                   </div>
-                  <p className="text-xs text-slate-600">{event.description}</p>
+                  <p className="text-xs text-slate-600 break-words">{event.description}</p>
                 </div>
               ))}
             </div>
@@ -2319,13 +2851,13 @@ export default function AdminPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-slate-900">{entry.name || 'Unnamed'}</p>
-                      <p className="text-xs text-slate-500">{entry.email}</p>
+                        <p className="text-xs text-slate-500 break-all">{entry.email}</p>
                     </div>
                     <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">
                       {entry.deviceType}
                     </div>
                   </div>
-                  <div className="text-xs text-slate-600">
+                  <div className="text-xs text-slate-600 break-words">
                     Interests: {entry.interests?.length ? entry.interests.join(', ') : 'None listed'}
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2355,6 +2887,64 @@ export default function AdminPage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Assembly and encoding playbook</h2>
+            <p className="text-xs text-slate-500">
+              Step-by-step instructions for every manufacturing station.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {PRODUCTION_PLAYBOOK.map((section) => (
+              <details key={section.id} className="border border-slate-200 rounded-2xl p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+                  {section.title}
+                </summary>
+                <div className="mt-3 space-y-3 text-xs text-slate-600">
+                  <p>{section.summary}</p>
+                  {section.tools && section.tools.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Tools
+                      </p>
+                      <p>{section.tools.join(', ')}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      Steps
+                    </p>
+                    <ol className="list-decimal pl-5 space-y-1">
+                      {section.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                  {section.qualityChecks && section.qualityChecks.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Quality checks
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {section.qualityChecks.map((check) => (
+                          <li key={check}>{check}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      Outputs
+                    </p>
+                    <p>{section.outputs.join(', ')}</p>
+                  </div>
+                </div>
+              </details>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500">Full text: `docs/production-playbook.md`</p>
         </section>
       </main>
     </div>

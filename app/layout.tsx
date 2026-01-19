@@ -1,19 +1,6 @@
 import type { Metadata } from 'next';
-import { Outfit, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import Providers from './providers';
-
-const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-outfit',
-  display: 'swap'
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap'
-});
 
 export const metadata: Metadata = {
   title: 'Anishinaabe Connect',
@@ -22,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${playfair.variable}`}>
+    <html lang="en">
       <body className="font-sans bg-slate-50 text-slate-900">
         <Providers>{children}</Providers>
       </body>
