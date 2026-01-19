@@ -23,6 +23,30 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /batches/{batchId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /inventory/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /purchase_orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /firmware_releases/{releaseId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /qa_reports/{reportId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /shipments/{shipmentId} {
+      allow read, write: if isAdmin();
+    }
+
     match /waitlist/{entryId} {
       allow create: if request.resource.data.consent == true;
       allow read, update, delete: if isAdmin();

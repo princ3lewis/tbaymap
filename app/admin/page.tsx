@@ -61,6 +61,8 @@ import { WaitlistDeviceType } from '../../services/waitlistService';
 import { TbayEvent } from '../../types';
 
 const deviceStatusOptions: AdminDeviceStatus[] = ['online', 'offline', 'maintenance'];
+const deviceTypeOptions: WaitlistDeviceType[] = ['Bracelet', 'Necklace', 'Ring'];
+const lifecycleOptions = ['new', 'encoding', 'calibration', 'ready', 'assigned', 'retired'];
 const waitlistStatusOptions = ['new', 'contacted', 'invited', 'converted', 'archived'];
 const stageStatusOptions: ManufacturingStageStatus[] = [
   'not_started',
@@ -637,6 +639,10 @@ export default function AdminPage() {
     setPoItemDraft({ sku: '', name: '', qty: 1, unitCost: 0 });
   };
 
+  const handleRemovePoItem = (index: number) => {
+    setPoItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
   const handlePurchaseOrderStatus = async (id: string, status: PurchaseOrderStatus) => {
     try {
       await updatePurchaseOrder(id, { status });
@@ -927,69 +933,523 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-10">
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Events</p>
             <p className="text-3xl font-bold text-slate-900 mt-2">{events.length}</p>
             <p className="text-xs text-slate-500 mt-1">Active gatherings</p>
           </div>
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Devices</p>
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Devices online</p>
             <p className="text-3xl font-bold text-slate-900 mt-2">
               {onlineDevices}/{devices.length}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Online right now</p>
+            <p className="text-xs text-slate-500 mt-1">Connected now</p>
           </div>
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Waitlist</p>
-            <p className="text-3xl font-bold text-slate-900 mt-2">{waitlistEntries.length}</p>
-            <p className="text-xs text-slate-500 mt-1">Community signups</p>
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Active batches</p>
+            <p className="text-3xl font-bold text-slate-900 mt-2">{activeBatches}</p>
+            <p className="text-xs text-slate-500 mt-1">In production</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Low stock</p>
+            <p className="text-3xl font-bold text-slate-900 mt-2">{lowStockItems}</p>
+            <p className="text-xs text-slate-500 mt-1">Items at reorder</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Open POs</p>
+            <p className="text-3xl font-bold text-slate-900 mt-2">{openPurchaseOrders}</p>
+            <p className="text-xs text-slate-500 mt-1">Awaiting delivery</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">QA issues</p>
+            <p className="text-3xl font-bold text-slate-900 mt-2">{qaIssues}</p>
+            <p className="text-xs text-slate-500 mt-1">Fails to resolve</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-400">Shipments</p>
+            <p className="text-3xl font-bold text-slate-900 mt-2">{shipmentsInFlight}</p>
+            <p className="text-xs text-slate-500 mt-1">In transit</p>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Device control</h2>
-                <p className="text-xs text-slate-500">Monitor, ping, and update device status.</p>
-              </div>
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Device registry</h2>
+              <p className="text-xs text-slate-500">
+                Register devices, encode IDs, and track manufacturing stages end-to-end.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               {deviceError && (
                 <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
                   {deviceError}
                 </span>
               )}
+              {stageError && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                  {stageError}
+                </span>
+              )}
             </div>
+          </div>
 
-            <form onSubmit={handleCreateDevice} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <div className="flex flex-wrap gap-3">
+          <form
+            onSubmit={handleCreateDevice}
+            className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex gap-2">
                 <input
-                  className="flex-1 min-w-[180px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Device label"
-                  value={newDevice.label}
-                  onChange={(event) => setNewDevice((prev) => ({ ...prev, label: event.target.value }))}
+                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Device ID"
+                  value={newDevice.deviceId}
+                  onChange={(event) => setNewDevice((prev) => ({ ...prev, deviceId: event.target.value }))}
+                />
+                <button
+                  type="button"
+                  onClick={generateDeviceId}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-white"
+                >
+                  Generate
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Serial"
+                  value={newDevice.serial}
+                  onChange={(event) => setNewDevice((prev) => ({ ...prev, serial: event.target.value }))}
+                />
+                <button
+                  type="button"
+                  onClick={generateSerial}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-white"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Device label"
+                value={newDevice.label}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, label: event.target.value }))}
+              />
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={newDevice.type}
+                onChange={(event) =>
+                  setNewDevice((prev) => ({ ...prev, type: event.target.value as WaitlistDeviceType }))
+                }
+              >
+                {deviceTypeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={newDevice.status}
+                onChange={(event) =>
+                  setNewDevice((prev) => ({ ...prev, status: event.target.value as AdminDeviceStatus }))
+                }
+              >
+                {deviceStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={newDevice.battery}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, battery: Number(event.target.value) }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Batch ID"
+                value={newDevice.batchId}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, batchId: event.target.value }))}
+              />
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={newDevice.lifecycle}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, lifecycle: event.target.value }))}
+              >
+                <option value="">Lifecycle</option>
+                {lifecycleOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Firmware"
+                value={newDevice.firmware}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, firmware: event.target.value }))}
+              />
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Key ID"
+                value={newDevice.keyId}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, keyId: event.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Assigned to"
+                value={newDevice.assignedTo}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, assignedTo: event.target.value }))}
+              />
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Notes (short)"
+                value={newDevice.notes}
+                onChange={(event) => setNewDevice((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+            </div>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              {createMessage && (
+                <span
+                  className={`text-xs px-3 py-1 rounded-full ${
+                    createStatus === 'success'
+                      ? 'bg-green-50 text-green-700 border border-green-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {createMessage}
+                </span>
+              )}
+              <button
+                type="submit"
+                disabled={createStatus === 'saving'}
+                className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {createStatus === 'saving' ? 'Saving...' : 'Register device'}
+              </button>
+            </div>
+          </form>
+
+          <div className="space-y-4">
+            {devices.length === 0 && <div className="text-sm text-slate-500">No devices registered yet.</div>}
+            {devices.map((device) => {
+              const draft = deviceDrafts[device.id];
+              const isExpanded = expandedDeviceId === device.id;
+              const stageSummary = MANUFACTURING_STAGES.reduce(
+                (acc, stage) => {
+                  const status = device.stages?.[stage.id]?.status ?? 'not_started';
+                  if (status === 'pass' || status === 'skipped') {
+                    acc.completed += 1;
+                  }
+                  if (status === 'in_progress') {
+                    acc.inProgress += 1;
+                  }
+                  if (status === 'blocked' || status === 'fail') {
+                    acc.blocked += 1;
+                  }
+                  return acc;
+                },
+                { completed: 0, inProgress: 0, blocked: 0 }
+              );
+              const progress = Math.round(
+                (stageSummary.completed / Math.max(1, MANUFACTURING_STAGES.length)) * 100
+              );
+              return (
+                <div key={device.id} className="border border-slate-200 rounded-2xl p-4 space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900">{device.label}</h3>
+                      <p className="text-xs text-slate-500">
+                        {device.type} • ID {device.deviceId || device.id} • Serial {device.serial || '—'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Batch {device.batchId || '—'} • Firmware {device.firmware || '—'} • Key{' '}
+                        {device.keyId || '—'}
+                      </p>
+                      <p className="text-xs text-slate-500">Last seen {formatDate(device.lastSeen)}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-1 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                        {device.status}
+                      </span>
+                      <span className="px-2 py-1 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                        {device.lifecycle || 'lifecycle'}
+                      </span>
+                      <span className="px-2 py-1 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                        {device.battery}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setExpandedDeviceId(isExpanded ? null : device.id)}
+                        className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+                      >
+                        {isExpanded ? 'Hide stages' : 'Stages'}
+                      </button>
+                      <button
+                        onClick={() => pingDevice(device.id)}
+                        className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+                      >
+                        Ping
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDevice(device.id)}
+                        className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>
+                        {stageSummary.completed}/{MANUFACTURING_STAGES.length} stages complete
+                      </span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {stageSummary.inProgress} in progress • {stageSummary.blocked} blocked or failed
+                    </p>
+                  </div>
+
+                  {draft && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Device ID"
+                        value={draft.deviceId ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'deviceId', event.target.value)}
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Serial"
+                        value={draft.serial ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'serial', event.target.value)}
+                      />
+                    </div>
+                  )}
+                  {draft && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.label}
+                        onChange={(event) => handleDraftChange(device.id, 'label', event.target.value)}
+                      />
+                      <select
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.type}
+                        onChange={(event) =>
+                          handleDraftChange(device.id, 'type', event.target.value as WaitlistDeviceType)
+                        }
+                      >
+                        {deviceTypeOptions.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.status}
+                        onChange={(event) =>
+                          handleDraftChange(device.id, 'status', event.target.value as AdminDeviceStatus)
+                        }
+                      >
+                        {deviceStatusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.battery}
+                        onChange={(event) => handleDraftChange(device.id, 'battery', Number(event.target.value))}
+                      />
+                    </div>
+                  )}
+                  {draft && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Batch ID"
+                        value={draft.batchId ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'batchId', event.target.value)}
+                      />
+                      <select
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.lifecycle ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'lifecycle', event.target.value)}
+                      >
+                        <option value="">Lifecycle</option>
+                        {lifecycleOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Firmware"
+                        value={draft.firmware ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'firmware', event.target.value)}
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Key ID"
+                        value={draft.keyId ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'keyId', event.target.value)}
+                      />
+                    </div>
+                  )}
+                  {draft && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Assigned to"
+                        value={draft.assignedTo ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'assignedTo', event.target.value)}
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Notes"
+                        value={draft.notes ?? ''}
+                        onChange={(event) => handleDraftChange(device.id, 'notes', event.target.value)}
+                      />
+                    </div>
+                  )}
+                  {draft && (
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => handleSaveDevice(device.id)}
+                        disabled={deviceSavingId === device.id}
+                        className="px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                      >
+                        {deviceSavingId === device.id ? 'Saving...' : 'Save changes'}
+                      </button>
+                    </div>
+                  )}
+
+                  {isExpanded && (
+                    <div className="border-t border-slate-200 pt-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-slate-900">Manufacturing stages</h4>
+                        <span className="text-xs text-slate-500">Update status per stage.</span>
+                      </div>
+                      {Object.entries(stagesByPhase).map(([phase, stages]) => (
+                        <div key={phase} className="space-y-3">
+                          <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400">
+                            {phase}
+                          </p>
+                          <div className="space-y-2">
+                            {stages.map((stage) => {
+                              const key = stageKey(device.id, stage.id);
+                              const stageDraft = stageDrafts[key];
+                              const stageData = device.stages?.[stage.id];
+                              return (
+                                <div
+                                  key={stage.id}
+                                  className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.6fr_1fr_auto] gap-2 items-center border border-slate-200 rounded-xl p-3"
+                                >
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-900">{stage.label}</p>
+                                    <p className="text-xs text-slate-500">{stage.description}</p>
+                                    <p className="text-[10px] text-slate-400">
+                                      {stageData?.updatedAt
+                                        ? `Updated ${formatDate(stageData.updatedAt)}${
+                                            stageData.updatedBy ? ` • ${stageData.updatedBy}` : ''
+                                          }`
+                                        : 'No updates yet'}
+                                    </p>
+                                  </div>
+                                  <select
+                                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                                    value={stageDraft?.status ?? stageData?.status ?? 'not_started'}
+                                    onChange={(event) =>
+                                      handleStageDraftChange(
+                                        device.id,
+                                        stage.id,
+                                        'status',
+                                        event.target.value as ManufacturingStageStatus
+                                      )
+                                    }
+                                  >
+                                    {stageStatusOptions.map((status) => (
+                                      <option key={status} value={status}>
+                                        {status}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                                    placeholder="Notes"
+                                    value={stageDraft?.notes ?? ''}
+                                    onChange={(event) =>
+                                      handleStageDraftChange(device.id, stage.id, 'notes', event.target.value)
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveStage(device.id, stage.id)}
+                                    disabled={stageSaving === key}
+                                    className="px-3 py-2 rounded-xl bg-slate-900 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                                  >
+                                    {stageSaving === key ? 'Saving...' : 'Save'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Manufacturing batches</h2>
+              <p className="text-xs text-slate-500">Plan production runs and track volume.</p>
+            </div>
+            <form onSubmit={handleCreateBatch} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Batch name"
+                  value={newBatch.name}
+                  onChange={(event) => setNewBatch((prev) => ({ ...prev, name: event.target.value }))}
                 />
                 <select
                   className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  value={newDevice.type}
+                  value={newBatch.status}
                   onChange={(event) =>
-                    setNewDevice((prev) => ({ ...prev, type: event.target.value as WaitlistDeviceType }))
+                    setNewBatch((prev) => ({ ...prev, status: event.target.value as BatchStatus }))
                   }
                 >
-                  {(['Bracelet', 'Necklace', 'Ring'] as WaitlistDeviceType[]).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  value={newDevice.status}
-                  onChange={(event) =>
-                    setNewDevice((prev) => ({ ...prev, status: event.target.value as AdminDeviceStatus }))
-                  }
-                >
-                  {deviceStatusOptions.map((status) => (
+                  {batchStatusOptions.map((status) => (
                     <option key={status} value={status}>
                       {status}
                     </option>
@@ -998,297 +1458,901 @@ export default function AdminPage() {
                 <input
                   type="number"
                   min={0}
-                  max={100}
-                  className="w-24 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  value={newDevice.battery}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Target count"
+                  value={newBatch.targetCount}
                   onChange={(event) =>
-                    setNewDevice((prev) => ({ ...prev, battery: Number(event.target.value) }))
+                    setNewBatch((prev) => ({ ...prev, targetCount: Number(event.target.value) }))
                   }
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <input
-                  className="flex-1 min-w-[180px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Assigned to (optional)"
-                  value={newDevice.assignedTo}
-                  onChange={(event) => setNewDevice((prev) => ({ ...prev, assignedTo: event.target.value }))}
-                />
-                <input
-                  className="flex-1 min-w-[160px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Firmware (optional)"
-                  value={newDevice.firmware}
-                  onChange={(event) => setNewDevice((prev) => ({ ...prev, firmware: event.target.value }))}
                 />
               </div>
               <textarea
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                 placeholder="Notes"
-                value={newDevice.notes}
-                onChange={(event) => setNewDevice((prev) => ({ ...prev, notes: event.target.value }))}
+                value={newBatch.notes}
+                onChange={(event) => setNewBatch((prev) => ({ ...prev, notes: event.target.value }))}
               />
-              <div className="flex items-center justify-between">
-                {createMessage && (
-                  <span
-                    className={`text-xs px-3 py-1 rounded-full ${
-                      createStatus === 'success'
-                        ? 'bg-green-50 text-green-700 border border-green-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    {createMessage}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {batchMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {batchMessage}
                   </span>
                 )}
                 <button
                   type="submit"
-                  disabled={createStatus === 'saving'}
-                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
                 >
-                  {createStatus === 'saving' ? 'Saving...' : 'Register device'}
+                  Create batch
                 </button>
               </div>
             </form>
+            <div className="space-y-3">
+              {batches.length === 0 && <div className="text-sm text-slate-500">No batches yet.</div>}
+              {batches.map((batch) => (
+                <div key={batch.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">{batch.name}</h3>
+                      <p className="text-xs text-slate-500">
+                        Target {batch.targetCount} • Created {formatDate(batch.createdAt)}
+                      </p>
+                    </div>
+                    <select
+                      className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                      value={batch.status}
+                      onChange={(event) =>
+                        handleBatchStatusChange(batch.id, event.target.value as BatchStatus)
+                      }
+                    >
+                      {batchStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <textarea
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Notes"
+                    defaultValue={batch.notes ?? ''}
+                    onBlur={(event) => handleBatchNotes(batch.id, event.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <div className="space-y-4">
-              {devices.length === 0 && (
-                <div className="text-sm text-slate-500">No devices registered yet.</div>
-              )}
-              {devices.map((device) => {
-                const draft = deviceDrafts[device.id];
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">QA reports</h2>
+              <p className="text-xs text-slate-500">Track testing results and rework notes.</p>
+            </div>
+            <form onSubmit={handleCreateQaReport} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newQaReport.deviceId}
+                  onChange={(event) =>
+                    setNewQaReport((prev) => ({ ...prev, deviceId: event.target.value }))
+                  }
+                >
+                  <option value="">Select device</option>
+                  {devices.map((device) => (
+                    <option key={device.id} value={device.deviceId || device.id}>
+                      {device.label} ({device.deviceId || device.id})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newQaReport.result}
+                  onChange={(event) =>
+                    setNewQaReport((prev) => ({ ...prev, result: event.target.value as QaResult }))
+                  }
+                >
+                  {qaResultOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Summary"
+                value={newQaReport.summary}
+                onChange={(event) => setNewQaReport((prev) => ({ ...prev, summary: event.target.value }))}
+              />
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Issues or rework notes"
+                value={newQaReport.issues}
+                onChange={(event) => setNewQaReport((prev) => ({ ...prev, issues: event.target.value }))}
+              />
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {qaMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {qaMessage}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
+                >
+                  Save QA report
+                </button>
+              </div>
+            </form>
+            <div className="space-y-3">
+              {qaReports.length === 0 && <div className="text-sm text-slate-500">No QA reports yet.</div>}
+              {qaReports.map((report) => (
+                <div key={report.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">{report.deviceId}</h3>
+                      <p className="text-xs text-slate-500">Logged {formatDate(report.createdAt)}</p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                      {report.result}
+                    </span>
+                  </div>
+                  {report.summary && <p className="text-xs text-slate-600">{report.summary}</p>}
+                  {report.issues && <p className="text-xs text-slate-500">Issues: {report.issues}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Inventory</h2>
+              <p className="text-xs text-slate-500">Track parts, lead times, and reorder levels.</p>
+            </div>
+            <form onSubmit={handleCreateInventoryItem} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Part name"
+                  value={newInventoryItem.name}
+                  onChange={(event) => setNewInventoryItem((prev) => ({ ...prev, name: event.target.value }))}
+                />
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="SKU"
+                  value={newInventoryItem.sku}
+                  onChange={(event) => setNewInventoryItem((prev) => ({ ...prev, sku: event.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Supplier"
+                  value={newInventoryItem.supplier}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({ ...prev, supplier: event.target.value }))
+                  }
+                />
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Category"
+                  value={newInventoryItem.category}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                />
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Location"
+                  value={newInventoryItem.location}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({ ...prev, location: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="On hand"
+                  value={newInventoryItem.onHand}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({ ...prev, onHand: Number(event.target.value) }))
+                  }
+                />
+                <input
+                  type="number"
+                  min={0}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Reorder point"
+                  value={newInventoryItem.reorderPoint}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({
+                      ...prev,
+                      reorderPoint: Number(event.target.value)
+                    }))
+                  }
+                />
+                <input
+                  type="number"
+                  min={0}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Unit cost"
+                  value={newInventoryItem.unitCost}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({ ...prev, unitCost: Number(event.target.value) }))
+                  }
+                />
+                <input
+                  type="number"
+                  min={0}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Lead time (days)"
+                  value={newInventoryItem.leadTimeDays}
+                  onChange={(event) =>
+                    setNewInventoryItem((prev) => ({
+                      ...prev,
+                      leadTimeDays: Number(event.target.value)
+                    }))
+                  }
+                />
+              </div>
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Notes"
+                value={newInventoryItem.notes}
+                onChange={(event) => setNewInventoryItem((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {inventoryMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {inventoryMessage}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
+                >
+                  Add inventory
+                </button>
+              </div>
+            </form>
+            <div className="space-y-3">
+              {inventoryItems.length === 0 && <div className="text-sm text-slate-500">No parts yet.</div>}
+              {inventoryItems.map((item) => {
+                const draft = inventoryDrafts[item.id];
+                if (!draft) {
+                  return null;
+                }
                 return (
-                  <div key={device.id} className="border border-slate-200 rounded-2xl p-4 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div key={item.id} className="border border-slate-200 rounded-2xl p-4 space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">{device.label}</h3>
+                        <h3 className="text-sm font-bold text-slate-900">{item.name}</h3>
                         <p className="text-xs text-slate-500">
-                          {device.type} • Last seen {formatDate(device.lastSeen)}
+                          SKU {item.sku} • Updated {formatDate(item.updatedAt)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => pingDevice(device.id)}
-                          className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
-                        >
-                          Ping
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDevice(device.id)}
-                          className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleInventorySave(item.id)}
+                        disabled={inventorySavingId === item.id}
+                        className="px-3 py-1.5 rounded-full bg-slate-900 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                      >
+                        {inventorySavingId === item.id ? 'Saving...' : 'Save'}
+                      </button>
                     </div>
-                    {draft && (
-                      <div className="grid grid-cols-1 md:grid-cols-[1fr_160px_120px] gap-3 items-center">
-                        <input
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          value={draft.label}
-                          onChange={(event) => handleDraftChange(device.id, 'label', event.target.value)}
-                        />
-                        <select
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          value={draft.status}
-                          onChange={(event) =>
-                            handleDraftChange(device.id, 'status', event.target.value as AdminDeviceStatus)
-                          }
-                        >
-                          {deviceStatusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          value={draft.battery}
-                          onChange={(event) =>
-                            handleDraftChange(device.id, 'battery', Number(event.target.value))
-                          }
-                        />
-                      </div>
-                    )}
-                    {draft && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          placeholder="Assigned to"
-                          value={draft.assignedTo ?? ''}
-                          onChange={(event) => handleDraftChange(device.id, 'assignedTo', event.target.value)}
-                        />
-                        <input
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          placeholder="Firmware"
-                          value={draft.firmware ?? ''}
-                          onChange={(event) => handleDraftChange(device.id, 'firmware', event.target.value)}
-                        />
-                      </div>
-                    )}
-                    {draft && (
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <textarea
-                          className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                          placeholder="Notes"
-                          value={draft.notes ?? ''}
-                          onChange={(event) => handleDraftChange(device.id, 'notes', event.target.value)}
-                        />
-                        <button
-                          onClick={() => handleSaveDevice(device.id)}
-                          disabled={deviceSavingId === device.id}
-                          className="px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
-                        >
-                          {deviceSavingId === device.id ? 'Saving...' : 'Save'}
-                        </button>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.name}
+                        onChange={(event) => handleInventoryDraftChange(item.id, 'name', event.target.value)}
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.sku}
+                        onChange={(event) => handleInventoryDraftChange(item.id, 'sku', event.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Supplier"
+                        value={draft.supplier ?? ''}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'supplier', event.target.value)
+                        }
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Category"
+                        value={draft.category ?? ''}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'category', event.target.value)
+                        }
+                      />
+                      <input
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Location"
+                        value={draft.location ?? ''}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'location', event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <input
+                        type="number"
+                        min={0}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.onHand}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'onHand', Number(event.target.value))
+                        }
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.reorderPoint ?? 0}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'reorderPoint', Number(event.target.value))
+                        }
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.unitCost ?? 0}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'unitCost', Number(event.target.value))
+                        }
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={draft.leadTimeDays ?? 0}
+                        onChange={(event) =>
+                          handleInventoryDraftChange(item.id, 'leadTimeDays', Number(event.target.value))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                      placeholder="Notes"
+                      value={draft.notes ?? ''}
+                      onChange={(event) => handleInventoryDraftChange(item.id, 'notes', event.target.value)}
+                    />
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Admin access</h2>
-                <p className="text-xs text-slate-500">Add or remove staff accounts with console access.</p>
-              </div>
-              <form onSubmit={handleAddAdmin} className="flex flex-wrap gap-2">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Purchase orders</h2>
+              <p className="text-xs text-slate-500">Place orders and track deliveries.</p>
+            </div>
+            <form onSubmit={handleCreatePurchaseOrder} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input
-                  className="flex-1 min-w-[200px] rounded-full border border-slate-200 px-4 py-2 text-sm"
-                  placeholder="new-admin@email.com"
-                  value={adminEmailDraft}
-                  onChange={(event) => {
-                    setAdminEmailDraft(event.target.value);
-                    if (adminAction !== 'saving') {
-                      setAdminAction('idle');
-                      setAdminMessage(null);
-                    }
-                  }}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Supplier"
+                  value={newPo.supplier}
+                  onChange={(event) => setNewPo((prev) => ({ ...prev, supplier: event.target.value }))}
                 />
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newPo.status}
+                  onChange={(event) =>
+                    setNewPo((prev) => ({ ...prev, status: event.target.value as PurchaseOrderStatus }))
+                  }
+                >
+                  {purchaseOrderStatusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="date"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newPo.orderedAt ? newPo.orderedAt.toISOString().slice(0, 10) : ''}
+                  onChange={(event) =>
+                    setNewPo((prev) => ({
+                      ...prev,
+                      orderedAt: event.target.value ? new Date(event.target.value) : null
+                    }))
+                  }
+                />
+                <input
+                  type="date"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newPo.expectedAt ? newPo.expectedAt.toISOString().slice(0, 10) : ''}
+                  onChange={(event) =>
+                    setNewPo((prev) => ({
+                      ...prev,
+                      expectedAt: event.target.value ? new Date(event.target.value) : null
+                    }))
+                  }
+                />
+              </div>
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Notes"
+                value={newPo.notes ?? ''}
+                onChange={(event) => setNewPo((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+              <div className="border border-slate-200 rounded-2xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-500">Line items</p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <input
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="SKU"
+                    value={poItemDraft.sku}
+                    onChange={(event) => setPoItemDraft((prev) => ({ ...prev, sku: event.target.value }))}
+                  />
+                  <input
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Item name"
+                    value={poItemDraft.name}
+                    onChange={(event) => setPoItemDraft((prev) => ({ ...prev, name: event.target.value }))}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Qty"
+                    value={poItemDraft.qty}
+                    onChange={(event) =>
+                      setPoItemDraft((prev) => ({ ...prev, qty: Number(event.target.value) }))
+                    }
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Unit cost"
+                    value={poItemDraft.unitCost}
+                    onChange={(event) =>
+                      setPoItemDraft((prev) => ({ ...prev, unitCost: Number(event.target.value) }))
+                    }
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleAddPoItem}
+                    className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50"
+                  >
+                    Add line
+                  </button>
+                </div>
+                {poItems.length > 0 && (
+                  <div className="space-y-2">
+                    {poItems.map((item, index) => (
+                      <div key={`${item.sku}-${index}`} className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-slate-600">
+                          {item.name} ({item.sku}) • {item.qty} @ ${item.unitCost}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePoItem(index)}
+                          className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {poMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {poMessage}
+                  </span>
+                )}
                 <button
                   type="submit"
-                  disabled={adminAction === 'saving'}
-                  className="px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
                 >
-                  {adminAction === 'saving' ? 'Adding...' : 'Add admin'}
+                  Create PO
                 </button>
-              </form>
-              {adminMessage && (
-                <div
-                  className={`text-xs px-3 py-1 rounded-full ${
-                    adminAction === 'success'
-                      ? 'bg-green-50 text-green-700 border border-green-200'
-                      : 'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}
-                >
-                  {adminMessage}
-                </div>
+              </div>
+            </form>
+            <div className="space-y-3">
+              {purchaseOrders.length === 0 && (
+                <div className="text-sm text-slate-500">No purchase orders yet.</div>
               )}
-              <div className="space-y-2">
-                {admins.length === 0 && (
-                  <div className="text-sm text-slate-500">No admins recorded yet.</div>
+              {purchaseOrders.map((order) => {
+                const total = order.items.reduce((sum, item) => sum + item.qty * item.unitCost, 0);
+                return (
+                  <div key={order.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">{order.supplier}</h3>
+                        <p className="text-xs text-slate-500">
+                          {order.items.length} items • Total ${total.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Ordered {formatDate(order.orderedAt)} • Expected {formatDate(order.expectedAt)}
+                        </p>
+                      </div>
+                      <select
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                        value={order.status}
+                        onChange={(event) =>
+                          handlePurchaseOrderStatus(order.id, event.target.value as PurchaseOrderStatus)
+                        }
+                      >
+                        {purchaseOrderStatusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      {order.items.map((item) => `${item.name} (${item.qty})`).join(', ')}
+                    </div>
+                    {order.notes && <p className="text-xs text-slate-500">Notes: {order.notes}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Firmware releases</h2>
+              <p className="text-xs text-slate-500">Track versions and rollout status.</p>
+            </div>
+            <form onSubmit={handleCreateFirmware} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Version"
+                  value={newFirmware.version}
+                  onChange={(event) => setNewFirmware((prev) => ({ ...prev, version: event.target.value }))}
+                />
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newFirmware.status}
+                  onChange={(event) =>
+                    setNewFirmware((prev) => ({ ...prev, status: event.target.value as FirmwareStatus }))
+                  }
+                >
+                  {firmwareStatusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Checksum"
+                value={newFirmware.checksum}
+                onChange={(event) => setNewFirmware((prev) => ({ ...prev, checksum: event.target.value }))}
+              />
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Notes"
+                value={newFirmware.notes}
+                onChange={(event) => setNewFirmware((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {firmwareMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {firmwareMessage}
+                  </span>
                 )}
-                {admins.map((admin) => (
-                  <div key={admin.email} className="flex items-center justify-between gap-3">
+                <button
+                  type="submit"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
+                >
+                  Add firmware
+                </button>
+              </div>
+            </form>
+            <div className="space-y-3">
+              {firmwareReleases.length === 0 && (
+                <div className="text-sm text-slate-500">No firmware releases yet.</div>
+              )}
+              {firmwareReleases.map((release) => (
+                <div key={release.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{admin.email}</p>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                        Added {formatDate(admin.createdAt)}
+                      <h3 className="text-sm font-bold text-slate-900">{release.version}</h3>
+                      <p className="text-xs text-slate-500">Created {formatDate(release.createdAt)}</p>
+                    </div>
+                    <select
+                      className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                      value={release.status}
+                      onChange={(event) =>
+                        handleFirmwareStatus(release.id, event.target.value as FirmwareStatus)
+                      }
+                    >
+                      {firmwareStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {release.checksum && <p className="text-xs text-slate-600">Checksum: {release.checksum}</p>}
+                  {release.notes && <p className="text-xs text-slate-500">Notes: {release.notes}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Fulfillment</h2>
+              <p className="text-xs text-slate-500">Ship devices and track deliveries.</p>
+            </div>
+            <form onSubmit={handleCreateShipment} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Carrier"
+                  value={newShipment.carrier}
+                  onChange={(event) => setNewShipment((prev) => ({ ...prev, carrier: event.target.value }))}
+                />
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Tracking #"
+                  value={newShipment.tracking}
+                  onChange={(event) => setNewShipment((prev) => ({ ...prev, tracking: event.target.value }))}
+                />
+              </div>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={newShipment.status}
+                onChange={(event) =>
+                  setNewShipment((prev) => ({ ...prev, status: event.target.value as ShipmentStatus }))
+                }
+              >
+                {shipmentStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Device IDs (comma separated)"
+                value={newShipment.deviceIds.join(', ')}
+                onChange={(event) => {
+                  const ids = event.target.value
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  setNewShipment((prev) => ({ ...prev, deviceIds: ids }));
+                }}
+              />
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Recipient name"
+                value={newShipment.recipientName}
+                onChange={(event) =>
+                  setNewShipment((prev) => ({ ...prev, recipientName: event.target.value }))
+                }
+              />
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Shipping address"
+                value={newShipment.address}
+                onChange={(event) => setNewShipment((prev) => ({ ...prev, address: event.target.value }))}
+              />
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Notes"
+                value={newShipment.notes}
+                onChange={(event) => setNewShipment((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {shipmentMessage && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    {shipmentMessage}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  className="ml-auto px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800"
+                >
+                  Create shipment
+                </button>
+              </div>
+            </form>
+            <div className="space-y-3">
+              {shipments.length === 0 && <div className="text-sm text-slate-500">No shipments yet.</div>}
+              {shipments.map((shipment) => (
+                <div key={shipment.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {shipment.carrier || 'Carrier'} • {shipment.tracking || 'Tracking pending'}
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {shipment.deviceIds.length} devices • Created {formatDate(shipment.createdAt)}
+                      </p>
+                    </div>
+                    <select
+                      className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                      value={shipment.status}
+                      onChange={(event) =>
+                        handleShipmentStatus(shipment.id, event.target.value as ShipmentStatus)
+                      }
+                    >
+                      {shipmentStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {shipment.recipientName && (
+                    <p className="text-xs text-slate-600">Recipient: {shipment.recipientName}</p>
+                  )}
+                  {shipment.address && <p className="text-xs text-slate-500">{shipment.address}</p>}
+                  {shipment.deviceIds.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Devices: {shipment.deviceIds.join(', ')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Admin access</h2>
+              <p className="text-xs text-slate-500">Add or remove staff accounts with console access.</p>
+            </div>
+            <form onSubmit={handleAddAdmin} className="flex flex-wrap gap-2">
+              <input
+                className="flex-1 min-w-[200px] rounded-full border border-slate-200 px-4 py-2 text-sm"
+                placeholder="new-admin@email.com"
+                value={adminEmailDraft}
+                onChange={(event) => {
+                  setAdminEmailDraft(event.target.value);
+                  if (adminAction !== 'saving') {
+                    setAdminAction('idle');
+                    setAdminMessage(null);
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={adminAction === 'saving'}
+                className="px-4 py-2 rounded-full bg-slate-900 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {adminAction === 'saving' ? 'Adding...' : 'Add admin'}
+              </button>
+            </form>
+            {adminMessage && (
+              <div
+                className={`text-xs px-3 py-1 rounded-full ${
+                  adminAction === 'success'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}
+              >
+                {adminMessage}
+              </div>
+            )}
+            <div className="space-y-2">
+              {admins.length === 0 && <div className="text-sm text-slate-500">No admins recorded yet.</div>}
+              {admins.map((admin) => (
+                <div key={admin.email} className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{admin.email}</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                      Added {formatDate(admin.createdAt)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveAdmin(admin.email)}
+                    disabled={admin.email === userEmail}
+                    className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {admin.email === userEmail ? 'You' : 'Remove'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Active events</h2>
+              <p className="text-xs text-slate-500">Moderate gatherings in real time.</p>
+            </div>
+            <div className="space-y-3">
+              {events.length === 0 && <div className="text-sm text-slate-500">No events yet.</div>}
+              {events.map((event) => (
+                <div key={event.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">{event.title}</h3>
+                      <p className="text-xs text-slate-500">
+                        {event.category} • {event.time} • {event.participants} attending
                       </p>
                     </div>
                     <button
-                      onClick={() => handleRemoveAdmin(admin.email)}
-                      disabled={admin.email === userEmail}
-                      className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleDeleteEvent(event.id)}
+                      className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50"
                     >
-                      {admin.email === userEmail ? 'You' : 'Remove'}
+                      Remove
                     </button>
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs text-slate-600">{event.description}</p>
+                </div>
+              ))}
             </div>
+          </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Active events</h2>
-                <p className="text-xs text-slate-500">Moderate gatherings in real time.</p>
-              </div>
-              <div className="space-y-3">
-                {events.length === 0 && <div className="text-sm text-slate-500">No events yet.</div>}
-                {events.map((event) => (
-                  <div key={event.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">{event.title}</h3>
-                        <p className="text-xs text-slate-500">
-                          {event.category} • {event.time} • {event.participants} attending
-                        </p>
-                      </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Waitlist pipeline</h2>
+              <p className="text-xs text-slate-500">Track pre-orders and outreach.</p>
+            </div>
+            <div className="space-y-3">
+              {waitlistEntries.length === 0 && (
+                <div className="text-sm text-slate-500">No waitlist entries yet.</div>
+              )}
+              {waitlistEntries.map((entry) => (
+                <div key={entry.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{entry.name || 'Unnamed'}</p>
+                      <p className="text-xs text-slate-500">{entry.email}</p>
+                    </div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">
+                      {entry.deviceType}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Interests: {entry.interests?.length ? entry.interests.join(', ') : 'None listed'}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-[10px] text-slate-400">Joined {formatDate(entry.createdAt)}</span>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                        value={entry.status ?? 'new'}
+                        onChange={(event) => handleWaitlistStatus(entry.id, event.target.value)}
+                      >
+                        {waitlistStatusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
                       <button
-                        onClick={() => handleDeleteEvent(event.id)}
+                        onClick={() => handleDeleteWaitlistEntry(entry.id)}
                         className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50"
                       >
-                        Remove
+                        Archive
                       </button>
                     </div>
-                    <p className="text-xs text-slate-600">{event.description}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Waitlist pipeline</h2>
-                <p className="text-xs text-slate-500">Track pre-orders and outreach.</p>
-              </div>
-              <div className="space-y-3">
-                {waitlistEntries.length === 0 && (
-                  <div className="text-sm text-slate-500">No waitlist entries yet.</div>
-                )}
-                {waitlistEntries.map((entry) => (
-                  <div key={entry.id} className="border border-slate-200 rounded-2xl p-4 space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{entry.name || 'Unnamed'}</p>
-                        <p className="text-xs text-slate-500">{entry.email}</p>
-                      </div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">
-                        {entry.deviceType}
-                      </div>
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      Interests: {entry.interests?.length ? entry.interests.join(', ') : 'None listed'}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="text-[10px] text-slate-400">Joined {formatDate(entry.createdAt)}</span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
-                          value={entry.status ?? 'new'}
-                          onChange={(event) => handleWaitlistStatus(entry.id, event.target.value)}
-                        >
-                          {waitlistStatusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => handleDeleteWaitlistEntry(entry.id)}
-                          className="px-3 py-1.5 rounded-full border border-rose-200 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:bg-rose-50"
-                        >
-                          Archive
-                        </button>
-                      </div>
-                    </div>
-                    {entry.notes && <p className="text-xs text-slate-500">Notes: {entry.notes}</p>}
-                  </div>
-                ))}
-              </div>
+                  {entry.notes && <p className="text-xs text-slate-500">Notes: {entry.notes}</p>}
+                </div>
+              ))}
             </div>
           </div>
         </section>
