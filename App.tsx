@@ -78,6 +78,8 @@ const App: React.FC = () => {
   
   const [activeNavEvent, setActiveNavEvent] = useState<TbayEvent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState({ title: '', category: EventCategory.SPORTS, description: '' });
   const [joinedEvents, setJoinedEvents] = useState<string[]>([]);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -159,10 +161,20 @@ const App: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const title = newEvent.title.trim();
+    const description = newEvent.description.trim();
+    if (!title || !description) {
+      setCreateError('Add a title and description to post your gathering.');
+      return;
+    }
+    if (isSubmittingEvent) {
+      return;
+    }
+    setIsSubmittingEvent(true);
     const baseLocation = userLocation ?? TBAY_COORDS;
     const eventPayload: Omit<TbayEvent, 'id'> = {
-      title: newEvent.title,
-      description: newEvent.description,
+      title,
+      description,
       category: newEvent.category,
       location: {
         lat: baseLocation.lat,
@@ -178,14 +190,22 @@ const App: React.FC = () => {
       ...eventPayload
     };
 
-    if (firebaseEnabled) {
-      await createEvent(eventPayload);
-    } else {
-      setEvents((prev) => [localEvent, ...prev]);
+    try {
+      if (firebaseEnabled) {
+        await createEvent(eventPayload);
+      } else {
+        setEvents((prev) => [localEvent, ...prev]);
+      }
+      setIsCreating(false);
+      setNewEvent({ title: '', category: EventCategory.SPORTS, description: '' });
+      setCreateError(null);
+      triggerAlert(localEvent);
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      setCreateError('Unable to post the gathering. Please try again.');
+    } finally {
+      setIsSubmittingEvent(false);
     }
-    setIsCreating(false);
-    setNewEvent({ title: '', category: EventCategory.SPORTS, description: '' });
-    triggerAlert(localEvent);
   };
 
   const handleJoin = async (id: string) => {
@@ -207,6 +227,11 @@ const App: React.FC = () => {
     }, 600);
   };
 
+  const openCreateModal = () => {
+    setIsCreating(true);
+    setCreateError(null);
+  };
+
   return (
     <div className={`min-h-screen bg-slate-50 text-slate-900 pb-24 transition-all duration-500 ${device.blinking ? 'ring-8 ring-indigo-500/20 ring-inset' : ''}`}>
       <Header deviceStatus={device} />
@@ -224,11 +249,15 @@ const App: React.FC = () => {
           <>
             {!activeNavEvent && (
               <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-100">
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-100"
+                >
                   +
-                </div>
+                </button>
                 <button 
-                  onClick={() => setIsCreating(true)}
+                  onClick={openCreateModal}
                   className="flex-1 text-left px-5 py-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-500 transition-colors font-medium"
                 >
                   Start a practice or BBQ...
@@ -294,7 +323,7 @@ const App: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => setIsCreating(true)}
+            onClick={openCreateModal}
             className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-100 -mt-10 border-4 border-white active:scale-90 transition-transform"
           >
             <span className="text-2xl font-bold">+</span>
@@ -309,6 +338,120 @@ const App: React.FC = () => {
           </button>
         </div>
       </nav>
+
+      {isCreating && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center px-4"
+          onClick={() => {
+            setIsCreating(false);
+            setCreateError(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4 gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Create gathering</h2>
+                <p className="text-xs text-slate-500">
+                  Send an invite to people nearby who share this interest.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  setCreateError(null);
+                }}
+                className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 font-bold hover:bg-slate-100 transition-colors"
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Title</span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Football practice, BBQ, beadwork..."
+                  value={newEvent.title}
+                  onChange={(event) => {
+                    setNewEvent((prev) => ({ ...prev, title: event.target.value }));
+                    setCreateError(null);
+                  }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Category</span>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newEvent.category}
+                  onChange={(event) => {
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      category: event.target.value as EventCategory
+                    }));
+                    setCreateError(null);
+                  }}
+                >
+                  {Object.values(EventCategory).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Description
+                </span>
+                <textarea
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[110px]"
+                  placeholder="Share the details, time, and who should join."
+                  value={newEvent.description}
+                  onChange={(event) => {
+                    setNewEvent((prev) => ({ ...prev, description: event.target.value }));
+                    setCreateError(null);
+                  }}
+                />
+              </label>
+              {createError && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                  {createError}
+                </div>
+              )}
+              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>
+                  {userLocation ? 'Using your live location.' : 'Using Thunder Bay as a fallback.'}
+                </span>
+                <span className="uppercase tracking-widest font-bold text-slate-400">
+                  {userLocation ? 'GPS locked' : 'GPS pending'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    setCreateError(null);
+                  }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEvent}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingEvent ? 'Posting...' : 'Post gathering'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {device.vibrating && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none">

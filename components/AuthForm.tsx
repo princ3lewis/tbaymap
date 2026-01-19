@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
 
 const AuthForm: React.FC<Props> = ({ mode }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, signUp, enabled } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +42,10 @@ const AuthForm: React.FC<Props> = ({ mode }) => {
       } else {
         await signUp(email, password);
       }
-      router.push('/live');
+      const redirectParam = searchParams.get('redirect');
+      const redirectTarget =
+        redirectParam && redirectParam.startsWith('/') ? redirectParam : '/live';
+      router.push(redirectTarget);
     } catch (authError: any) {
       const message = authError?.message || 'Unable to authenticate. Please try again.';
       setStatus('error');

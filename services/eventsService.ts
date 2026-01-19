@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   increment,
   onSnapshot,
@@ -96,4 +97,11 @@ export const joinEvent = async (eventId: string) => {
   }
   const eventRef = doc(db, 'events', eventId);
   await updateDoc(eventRef, { participants: increment(1) });
+};
+
+export const deleteEvent = async (eventId: string) => {
+  if (!db) {
+    return;
+  }
+  await deleteDoc(doc(db, 'events', eventId));
 };

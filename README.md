@@ -28,13 +28,14 @@ Routes:
 - `/` marketing + waitlist
 - `/live` authenticated app experience
 - `/login` and `/signup` for auth
+- `/admin` admin console (requires admin access)
 
 ## Firebase App Hosting
 
 Create a backend (one time):
 
 ```
-firebase apphosting:backends:create --app 1:149108270482:web:11e3b3a0a94cd3f4580d4b --backend tbaymap-web --primary-region northamerica-northeast1 --root-dir .
+firebase apphosting:backends:create --app 1:149108270482:web:11e3b3a0a94cd3f4580d4b --backend tbaymap-web --primary-region us-central1 --root-dir .
 ```
 
 Trigger a rollout:
@@ -43,9 +44,17 @@ Trigger a rollout:
 firebase apphosting:rollouts:create tbaymap-web --project tbaymap
 ```
 
+Deploy Firestore rules:
+
+```
+firebase deploy --only firestore:rules --project tbaymap
+```
+
 ## Firebase Auth
 
 Enable Email/Password authentication in Firebase Console before using `/login` and `/signup`.
+
+Admin access is managed in the `/admin` console and stored in the `admins` collection. Seed your first admin by creating a document whose ID is the admin's email.
 
 ## Firestore Data Shape
 
@@ -83,4 +92,34 @@ Create a Firestore collection named `waitlist` with documents shaped like:
   "createdAt": "serverTimestamp()"
 }
 ```
+
+Create a Firestore collection named `devices` with documents shaped like:
+
+```json
+{
+  "label": "Bracelet-014",
+  "type": "Bracelet",
+  "status": "online",
+  "battery": 82,
+  "assignedTo": "Jordan",
+  "firmware": "1.0.4",
+  "notes": "Pilot unit",
+  "lastSeen": "serverTimestamp()",
+  "createdAt": "serverTimestamp()"
+}
+```
+
+Create a Firestore collection named `admins` with documents shaped like:
+
+```json
+{
+  "email": "admin@tbaytechservice.com",
+  "addedBy": "admin@tbaytechservice.com",
+  "createdAt": "serverTimestamp()"
+}
+```
+
+Use the admin email as the document ID (e.g. `admins/admin@tbaytechservice.com`) so rules can validate admin access.
+
+Make sure your first admin account exists in Firebase Auth before adding the admin document.
 # tbaymap
